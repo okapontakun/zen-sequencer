@@ -73,7 +73,7 @@
   .pix .hi{fill:var(--hi,#fff3c4)}
   .pix .lo{opacity:.5}
   /* 16ドットのアイコンも、1ドットの大きさが12ドットのものと揃うように */
-  .pad .pix.g16,.spd .pix.g16,.tr .pix.g16,.erasing .pix.g16{width:32px!important;height:32px!important}
+  .pad .pix.g16,.tr .pix.g16,.erasing .pix.g16{width:32px!important;height:32px!important}
   .help .icons .pix.g16{width:24px!important;height:24px!important}
   .dlg .pix.g16{width:48px!important;height:48px!important}
   .code{width:100%;resize:none;padding:8px 10px;background:#05060f;color:var(--text);border:3px solid var(--dim);border-radius:4px;
@@ -86,27 +86,29 @@
 
   /* 画面上部 */
   .hud-top{position:absolute;left:0;right:0;top:0;height:58px;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:0 10px 0 16px}
-  .ttl{font-size:16px;letter-spacing:.06em;color:rgba(245,241,230,.75);text-shadow:0 0 6px rgba(140,170,255,.55);pointer-events:none}
-  .tr{display:flex;align-items:center;gap:8px}
-  .tr .ib{width:42px;height:42px}
+  .ttl{white-space:nowrap;font-size:16px;letter-spacing:.06em;color:rgba(245,241,230,.75);text-shadow:0 0 6px rgba(140,170,255,.55);pointer-events:none}
+  /* 右上のボタンは4つ並ぶので、少しだけ小さく詰めて、左上の名前が折り返さないようにする */
+  .tr{display:flex;align-items:center;gap:6px}
+  .tr .ib{width:40px;height:40px}
   .tr .pix{width:24px;height:24px}
   .erasing{color:var(--warn);animation:blink 1s steps(1) infinite;margin-right:4px}
   .erasing .pix{width:24px;height:24px}
 
   /* 画面下部の操作 */
-  .hud-bot{position:absolute;left:0;right:0;bottom:0;z-index:2;display:flex;flex-direction:column;align-items:center;gap:18px;padding:0 12px 14px}
-  .tiles{display:flex;gap:12px}
-  .tile{position:relative;width:52px;height:46px}
+  .hud-bot{position:absolute;left:0;right:0;bottom:0;z-index:2;display:flex;flex-direction:column;align-items:center;gap:18px;padding:0 10px 14px;--row-w:min(310px,100%)}
+  /* 3段（4つのボタン・速さ・操作）は、すべてこの1つの幅（--row-w）でそろえる。左右の端がずれないように。
+     画面の横幅いっぱい近くまで広げて、左右の余白を少なくする（広い画面では310pxまで） */
+  .tiles{width:var(--row-w);display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .tile{position:relative;height:46px}
   .tile .pix{width:24px;height:24px;transition:transform .2s}
   .tile .mini{position:absolute;right:-9px;top:-10px;width:22px;height:22px;display:grid;place-items:center;background:var(--line);color:var(--ink);border-radius:2px}
   .tile .mini:empty{display:none}
   .tile .mini .pix{width:12px;height:12px}
   .tile .bar{position:absolute;left:-3px;bottom:-11px;height:5px;width:calc((100% + 6px) * var(--p,0));background:var(--sel);box-shadow:0 0 6px rgba(255,209,102,.8);opacity:0}
   .tile[aria-pressed="true"] .bar{opacity:1}
-  /* 左の4つ（ペン・消しゴム・サイコロ・ゴミ箱）と右の速さ（うさぎ〜かめ）は、上端と下端をそろえる。
-     列の高さは右の速さに合わせ、左はその高さを2段で分ける（再生ボタンは真ん中） */
-  .ctrl{width:100%;max-width:340px;display:grid;grid-template-columns:auto 1fr auto;align-items:stretch;gap:10px}
-  .pad{display:grid;grid-template-columns:repeat(2,52px);grid-template-rows:repeat(2,minmax(50px,1fr));gap:6px}
+  /* 左の4つ（ペン・消しゴム・サイコロ・ゴミ箱）と再生ボタンを、同じ大きさ（半分ずつ×106）で並べる。全体の幅は上の段と同じ */
+  .ctrl{width:var(--row-w);display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:10px}
+  .pad{height:112px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:6px}
   .pad .pix{width:24px;height:24px}
   /* おく／けすは、どちらか一方だけが選ばれるスライドスイッチ */
   .seg{grid-column:1 / span 2;position:relative;display:grid;grid-template-columns:1fr 1fr;padding:3px;
@@ -117,11 +119,11 @@
   .seg button{position:relative;z-index:1;display:grid;place-items:center;color:var(--dim)}
   .seg button[aria-checked="true"]{color:var(--ink);--hi:#fffdf4}
   .seg button:active{transform:translateY(2px)}
-  .play{width:96px;height:96px;display:grid;place-items:center;background:var(--amber);color:#3a1d00;border:3px solid var(--amber-hi);border-radius:6px;
+  .play{width:100%;height:112px;display:grid;place-items:center;background:var(--amber);color:#3a1d00;border:3px solid var(--amber-hi);border-radius:6px;
     box-shadow:0 0 16px rgba(255,184,77,.45);transition:transform .05s}
   .play:active{transform:translateY(2px)}
-  .play .pix{width:52px;height:52px}
-  .transport{justify-self:center;align-self:center;display:flex;align-items:center;gap:6px}
+  .play .pix{width:60px;height:60px}
+  .transport{display:flex}
   #muteBtn .i-off{display:none}
   #muteBtn[aria-pressed="true"] .i-on{display:none}
   #muteBtn[aria-pressed="true"] .i-off{display:block}
@@ -129,13 +131,13 @@
   .play .i-pause{display:none}
   .play[aria-pressed="true"] .i-play{display:none}
   .play[aria-pressed="true"] .i-pause{display:block}
-  .spd{display:flex;flex-direction:column;align-items:center;gap:4px}
-  .spd .ib{width:50px;height:36px}
-  .spd .pix{width:24px;height:24px}
-  .vleds{display:flex;flex-direction:column-reverse;gap:1px;width:34px;padding:2px 3px;background:#05060f;border:2px solid var(--dim)}
-  .vleds button{height:2px;background:#3a2208}
-  .vleds button.half{background:#8a5414;box-shadow:0 0 3px rgba(255,184,77,.35)}
-  .vleds button.on{background:var(--amber);box-shadow:0 0 4px rgba(255,184,77,.85)}
+  /* 速さ：かめ・ゲージ・うさぎを横に並べる。ゲージは1目盛り＝1段階（20段階）で、タップでもなぞってでも変えられる */
+  .spdrow{width:var(--row-w);display:grid;grid-template-columns:calc((var(--row-w) - 36px) / 4) minmax(0,1fr) calc((var(--row-w) - 36px) / 4);align-items:center;gap:8px}
+  .spdrow .ib{width:100%;height:30px}
+  .spdrow .pix{width:20px;height:20px}
+  .hleds{display:grid;grid-template-columns:repeat(20,minmax(0,1fr));gap:2px;height:30px;padding:3px;background:#05060f;border:2px solid var(--dim);border-radius:3px;touch-action:none;cursor:pointer}
+  .hleds span{background:#3a2208;border-radius:1px}
+  .hleds span.on{background:var(--amber);box-shadow:0 0 4px rgba(255,184,77,.85)}
 
   /* メッセージと確認 */
   .msg{position:absolute;left:12px;right:12px;bottom:220px;z-index:3;padding:10px 14px;font-size:20px;line-height:1.6;
@@ -150,8 +152,9 @@
   .wbtn{min-height:46px;border:3px solid var(--line);border-radius:4px;font-size:20px;padding:0 8px}
   .wbtn[aria-pressed="true"]{background:var(--line);color:var(--win)}
   .wbtn.yes{background:var(--sel);color:var(--ink);border-color:#fff3c4}
-  /* 3つ並びのボタンは、狭い画面で「やわら／か」のように途中で折り返さないよう、画面幅に合わせて文字を少し縮める */
+  /* 2つ・3つ並びのボタンは、狭い画面で「やわら／か」のように途中で折り返さないよう、画面幅に合わせて文字を少し縮める */
   .tri .wbtn{padding:0 2px;white-space:nowrap;font-size:min(20px,4.6vw)}
+  .pair .wbtn{padding:0 2px;white-space:nowrap;font-size:min(20px,4vw)}
 
   .title-card{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;pointer-events:none;text-align:center;transition:opacity .6s steps(4)}
   .title-card.gone{opacity:0}
@@ -276,12 +279,18 @@
             <span class="erasing" id="erasing" hidden data-icon="eraser" aria-label="消すモード中"></span>
             <button class="ib" id="helpBtn" data-icon="help" aria-label="遊び方"></button>
             <button class="ib" id="gearBtn" data-icon="gear" aria-label="設定"></button>
+            <button class="ib" id="shareBtn" data-icon="share" aria-label="共有"></button>
             <button class="ib" id="muteBtn" aria-pressed="false" aria-label="音を消す"><span class="i-on" data-icon="speaker"></span><span class="i-off" data-icon="speakerOff"></span></button>
           </div>
         </div>
 
         <div class="hud-bot" id="hudBot">
           <div class="tiles" id="tiles" role="group" aria-label="光の流れる向き（4つの順番）"></div>
+          <div class="spdrow">
+            <button class="ib" id="spDown" data-icon="turtle" aria-label="遅くする"></button>
+            <div class="hleds" id="spLeds" role="slider" tabindex="0" aria-label="速さ" aria-valuemin="1" aria-valuemax="20"></div>
+            <button class="ib" id="spUp" data-icon="rabbit" aria-label="速くする"></button>
+          </div>
           <div class="ctrl">
             <div class="pad">
               <div class="seg" id="toolSeg" data-mode="draw" role="radiogroup" aria-label="タップしたときの動作">
@@ -296,11 +305,6 @@
               <button class="play" id="play" aria-pressed="false" aria-label="再生">
                 <span class="i-play" data-icon="play"></span><span class="i-pause" data-icon="pause"></span>
               </button>
-            </div>
-            <div class="spd">
-              <button class="ib" id="spUp" data-icon="rabbit" aria-label="速くする"></button>
-              <div class="vleds" id="spLeds" role="group" aria-label="速さ"></div>
-              <button class="ib" id="spDown" data-icon="turtle" aria-label="遅くする"></button>
             </div>
           </div>
         </div>
@@ -324,13 +328,28 @@
           </div>
         </div>
 
+        <div class="win" id="share" hidden>
+          <div class="win-head"><h2>共有</h2><button class="ib" data-close data-icon="close" aria-label="閉じる"></button></div>
+          <div class="win-rule"></div>
+          <div class="win-body">
+            <section>
+              <h3>他の人に渡す</h3>
+              <p class="w-note">今の玉の配置と設定（キー・音階・速さ・流れ・音色・基準の高さ・リバーブ・ディレイ）を、リンクかコードにして渡せます。音量・ノイズ・音質・見え方・星の玉の出やすさは、受け取る人の設定のままです。</p>
+              <div class="pair"><button class="wbtn" id="copyLink">リンクをコピー</button><button class="wbtn" id="copyCode">コードをコピー</button></div>
+              <textarea class="code" id="codeOut" rows="4" readonly aria-label="共有するリンクまたはコード"></textarea>
+              <h3>受け取ったデータを読み込む</h3>
+              <textarea class="code" id="codeIn" rows="4" placeholder="リンクかコードを貼り付け" aria-label="読み込むリンクまたはコード"></textarea>
+              <button class="wbtn" id="importBtn">読み込む</button>
+            </section>
+          </div>
+        </div>
+
         <div class="win" id="settings" hidden>
           <div class="win-head" role="tablist">
             <button role="tab" data-tab="scale" aria-selected="true" data-icon="clef" aria-label="音階" title="音階"></button>
             <button role="tab" data-tab="sound" aria-selected="false" data-icon="speaker" aria-label="音" title="音"></button>
             <button role="tab" data-tab="eq" aria-selected="false" data-icon="eqIcon" aria-label="音質" title="音質"></button>
             <button role="tab" data-tab="view" aria-selected="false" data-icon="eye" aria-label="見え方" title="見え方"></button>
-            <button role="tab" data-tab="data" aria-selected="false" data-icon="floppy" aria-label="データ" title="データ"></button>
             <button class="ib" data-close data-icon="close" aria-label="閉じる"></button>
           </div>
           <div class="win-rule"></div>
@@ -384,15 +403,6 @@
               <p class="w-note">「見分けやすい色」にすると、玉の色を音名に合わせて、Cに近いほど深い青、Bに近いほど明るい黄色で表します。色の見分けがつきにくい方でも、明るさの違いで音名がわかります。音の高さは、玉の大きさで表します。</p>
               <div class="pair" id="cvdMode"><button class="wbtn" data-cvd="off">標準</button><button class="wbtn" data-cvd="on">見分けやすい色</button></div>
               <div class="kb cvd-kb" id="cvdScale" aria-hidden="true"></div>
-            </section>
-            <section data-panel="data" hidden>
-              <h3>他の人に渡す</h3>
-              <p class="w-note">今の玉の配置と設定（キー・音階・速さ・流れ・音色・基準の高さ・リバーブ・ディレイ）を、リンクかコードにして渡せます。音量・ノイズ・音質・見え方・星の玉の出やすさは、受け取る人の設定のままです。</p>
-              <div class="pair"><button class="wbtn" id="copyLink">リンクをコピー</button><button class="wbtn" id="copyCode">コードをコピー</button></div>
-              <textarea class="code" id="codeOut" rows="4" readonly aria-label="共有するリンクまたはコード"></textarea>
-              <h3>受け取ったデータを読み込む</h3>
-              <textarea class="code" id="codeIn" rows="4" placeholder="リンクかコードを貼り付け" aria-label="読み込むリンクまたはコード"></textarea>
-              <button class="wbtn" id="importBtn">読み込む</button>
             </section>
           </div>
         </div>
@@ -448,6 +458,7 @@
     minus:['............','............','............','............','............','.##########.','.##########.','............','............','............','............','............'],
     speaker:['............','.....#......','....##...#..','...###....#.','#####..#..#.','#####...#.#.','#####...#.#.','#####..#..#.','...###....#.','....##...#..','.....#......','............'],
     eqIcon:['..#...#...#.','..#..###..#.','..#..###..#.','..#...#...#.','.###..#...#.','.###..#...#.','..#...#..###','..#...#..###','..#...#...#.','..#...#...#.','..#...#...#.','..#...#...#.'],
+    share:['.........#..','.........##.','......######','.....#######','####.##..##.','###.##...#..','##..##......','##.......##.','##.......##.','##.......##.','###########.','###########.'],
     floppy:['##########..','##.#####.##.','##.##..#.###','##.#####.###','############','############','##........##','##.######.##','##........##','##.######.##','##........##','############'],
     speakerOff:['#...........','##...#......','.##.##...#..','..##.#....#.','##.##..#..#.','###.##..#.#.','####.##.#.#.','#####.##..#.','...###.##.#.','....##..##..','.....#...##.','..........##'],
     eye:['............','............','....####....','..##....##..','.#...##...#.','#...####...#','#...####...#','.#...##...#.','..##....##..','....####....','............','............'],
@@ -1018,13 +1029,6 @@
     c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
   }
 
-  function fitCtrl() {
-    const ctrl = $('.ctrl'); if (!ctrl) return;
-    ctrl.style.zoom = '';
-    const kids = [...ctrl.children], gap = parseFloat(getComputedStyle(ctrl).columnGap) || 0;
-    const need = kids.reduce((a, k) => a + k.offsetWidth, 0) + gap * (kids.length - 1), avail = ctrl.clientWidth;
-    if (need > avail) ctrl.style.zoom = String(Math.max(0.7, avail / need));
-  }
   function layout() {
     const r = crt.getBoundingClientRect();
     CW = Math.max(100, Math.floor(r.width)); CH = Math.max(160, Math.floor(r.height));
@@ -1033,8 +1037,6 @@
     cv.width = Math.round(CW * DPR); cv.height = Math.round(CH * DPR);
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     bloomCv.width = Math.ceil(CW / 6); bloomCv.height = Math.ceil(CH / 6);
-    // 下の操作列が画面の幅に収まらない狭い端末（iPhone SEなど）では、列全体を収まる大きさまで縮める
-    fitCtrl();
     const topH = hudTop.offsetHeight, botH = hudBot.offsetHeight;
     msgEl.style.bottom = (botH + 6) + 'px';
     F.x0 = 14; F.w = CW - 28; F.y0 = topH + 4; F.h = Math.max(120, CH - botH - 8 - F.y0);
@@ -1447,7 +1449,7 @@
     e.preventDefault();
     if (!powered || !dlg.hidden) return;
     // 窓が開いているときに水面に触れたら、玉は置かずに窓を閉じるだけにする
-    if (!helpWin.hidden || !settingsWin.hidden) { helpWin.hidden = true; settingsWin.hidden = true; return; }
+    if (!helpWin.hidden || !settingsWin.hidden || !shareWin.hidden) { helpWin.hidden = true; settingsWin.hidden = true; shareWin.hidden = true; return; }
     ensureAudio();
     const p = toLocal(e);
     try { cv.setPointerCapture(e.pointerId); } catch (err) {}
@@ -1672,10 +1674,11 @@
 
   // ================= はやさ（うさぎ・かめ） =================
   const leds = $('#spLeds');
-  leds.innerHTML = Array.from({length:SPEED_STEPS / 2}, (_, i) => `<button data-s="${i}" aria-label="速さ ${i + 1}"></button>`).join('');
-  // ランプ1つにつき「消えている／うっすら明るい／明るい」の3つの見た目で、20段階を表す
+  leds.innerHTML = '<span></span>'.repeat(SPEED_STEPS);
+  // 目盛り1つ＝1段階。左から今の速さまでを光らせる
   function drawLeds() {
-    $$('[data-s]', leds).forEach(b => { const i = +b.dataset.s; b.classList.toggle('on', S.speed >= 2 * i + 1); b.classList.toggle('half', S.speed === 2 * i); });
+    [...leds.children].forEach((b, i) => b.classList.toggle('on', i <= S.speed));
+    leds.setAttribute('aria-valuenow', String(S.speed + 1));
   }
   function setSpeed(v) {
     v = Math.max(0, Math.min(SPEED_STEPS - 1, v));
@@ -1684,7 +1687,14 @@
     S.speed = v; stepT = Math.min(progress * period(), period() * 0.999);
     drawLeds(); saveSoon(); haptic(4);
   }
-  leds.addEventListener('click', e => { const b = e.target.closest('[data-s]'); if (!b) return; const i = +b.dataset.s; setSpeed(S.speed === 2 * i + 1 ? 2 * i : 2 * i + 1); });
+  // ゲージは、タップした位置の速さにする。指を離さずに左右へなぞっても変えられる
+  let ledDrag = null;
+  const ledAt = e => { const r = leds.getBoundingClientRect(); return Math.floor(Math.max(0, Math.min(0.9999, (e.clientX - r.left) / r.width)) * SPEED_STEPS); };
+  const ledSet = e => { const v = ledAt(e); if (v !== S.speed) setSpeed(v); };
+  leds.addEventListener('pointerdown', e => { e.preventDefault(); ledDrag = e.pointerId; try { leds.setPointerCapture(e.pointerId); } catch (err) {} ledSet(e); });
+  leds.addEventListener('pointermove', e => { if (ledDrag === e.pointerId) ledSet(e); });
+  for (const ev of ['pointerup', 'pointercancel']) leds.addEventListener(ev, e => { if (ledDrag === e.pointerId) ledDrag = null; });
+  leds.addEventListener('keydown', e => { const d = {ArrowRight:1, ArrowUp:1, ArrowLeft:-1, ArrowDown:-1}[e.key]; if (d) { e.preventDefault(); setSpeed(S.speed + d); } });
   $('#spUp').addEventListener('click', () => setSpeed(S.speed + 1));
   $('#spDown').addEventListener('click', () => setSpeed(S.speed - 1));
 
@@ -1794,29 +1804,38 @@
     [`<span class="icons"><img class="orb-img" src="${starImage(45)}" alt=""></span>`, '星の玉は、鳴るたびに音が変わります。出やすさは設定の音階タブで変えられます。'],
     [ic('play', 'pause'), '光が水を渡り、通った玉の音が鳴ります。もう一度押すと、一時停止します。'],
     [ic('arrow'), '光が進む方向です。タップすると右、下、左、上、？の順番で変わります。'],
-    [ic('rabbit', 'turtle'), '光が渡る速さを変えられます。'],
+    [ic('turtle', 'rabbit'), '光が渡る速さを変えられます。間のゲージをタップしたり、なぞったりしても変えられます。'],
     [ic('pencil', 'eraser'), '鉛筆は置くモード、消しゴムは消すモードです。'],
     [ic('dice', 'trash'), 'サイコロボタンで、玉の音を一気に変えることができます。ゴミ箱ボタンで玉を一気に消すことができます。'],
     [ic('speaker', 'speakerOff'), 'スピーカーボタンで音を消したり戻したりできます。再生中は、アプリを切り替えたり画面を消したりしても流れ続けます（端末によっては止まることがあります）。'],
-    [ic('gear'), '音階や音の聞こえ方、玉の見え方などを設定できます。作ったデータをほかの人に共有する場合は、フロッピーアイコンの項目から操作してください。']
+    [ic('gear'), '歯車ボタンで、音階・音・音質・見え方などを設定できます。'],
+    [ic('share'), '共有ボタンで、作った玉の配置と設定をほかの人に渡したり、受け取ったものを読み込んだりできます。']
   ].map(([i, t]) => `<li>${i}<span>${t.replace(/。(?=.)/g, '。<br>')}</span></li>`).join('');   // 句点ごとに改行
-  $('#helpBtn').addEventListener('click', () => { if (!powered) return; settingsWin.hidden = true; helpWin.hidden = false; haptic(5); });
+  $('#helpBtn').addEventListener('click', () => { if (!powered) return; settingsWin.hidden = true; shareWin.hidden = true; helpWin.hidden = false; haptic(5); });
 
   // ================= せってい =================
-  const settingsWin = $('#settings'), setBody = $('#setBody');
+  const settingsWin = $('#settings'), setBody = $('#setBody'), shareWin = $('#share');
   $$('[data-close]').forEach(b => b.addEventListener('click', () => { b.closest('.win').hidden = true; }));
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
-    if (!dlg.hidden) closeDlg(); else { helpWin.hidden = true; settingsWin.hidden = true; }
+    if (!dlg.hidden) closeDlg(); else { helpWin.hidden = true; settingsWin.hidden = true; shareWin.hidden = true; }
   });
   function setTab(name) {
     $$('[role="tab"]', settingsWin).forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
     $$('[data-panel]', settingsWin).forEach(p => { p.hidden = p.dataset.panel !== name; });
     setBody.scrollTop = 0;
-    if (name === 'data') $('#codeOut').value = shareText();
   }
   $$('[role="tab"]', settingsWin).forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
-  $('#gearBtn').addEventListener('click', () => { if (!powered) return; helpWin.hidden = true; renderSettings(); settingsWin.hidden = false; haptic(5); });
+  // 右上の歯車ボタン：設定の画面を開く（前に見ていたタブのまま開き、切り替えは上のタブで行う）
+  $('#gearBtn').addEventListener('click', () => {
+    if (!powered) return;
+    helpWin.hidden = true; shareWin.hidden = true; renderSettings(); settingsWin.hidden = false; haptic(5);
+  });
+  // 右上の共有ボタン：玉の配置と設定を渡す／受け取る画面を開く
+  $('#shareBtn').addEventListener('click', () => {
+    if (!powered) return;
+    helpWin.hidden = true; settingsWin.hidden = true; $('#codeOut').value = shareText(); shareWin.hidden = false; haptic(5);
+  });
 
   const rootSel = $('#rootSel'), scaleSel = $('#scaleSel'), keysEl = $('#keys');
   rootSel.innerHTML = NAMES.map((nm, pc) => `<option value="${pc}">${nm}</option>`).join('');
@@ -2072,7 +2091,7 @@
     const d = decodeShare(codeIn.value);
     if (!d) { say('読み込めませんでした。リンクかコードを確認してください', 3200); return; }
     confirmAsk('orb', 'このデータを読み込みますか？今の玉と設定は置き換わります。', () => {
-      applyShare(d); codeIn.value = ''; settingsWin.hidden = true;
+      applyShare(d); codeIn.value = ''; shareWin.hidden = true;
     });
   });
   // リンクで開かれたとき（# にコードがついているとき）
