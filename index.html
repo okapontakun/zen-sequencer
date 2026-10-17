@@ -33,6 +33,8 @@
     --win:#0b0f2a; --line:#f5f1e6; --text:#f5f1e6; --dim:#8f9ac4; --sel:#ffd166; --warn:#ff9a9a; --ink:#231f19;
     --amber:#ffb84d; --amber-hi:#ffe2a6;
     --font-dot:"DotGothic16","Osaka-Mono","MS Gothic",monospace;
+    /* 説明文など、読ませる文章用。端末に入っている読みやすいゴシック体を使う（読み込みなしですぐ表示される） */
+    --font-read:system-ui,-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI","Meiryo",sans-serif;
     color-scheme:dark;
   }
   /* ボタンを素早く続けて押したときに、ダブルタップで画面が拡大されないようにする（2本指での拡大とスクロールはそのまま使える） */
@@ -40,7 +42,7 @@
   [hidden]{display:none!important}
   html,body{height:100%}
   html{background:var(--body-lo)}
-  body{margin:0;background:var(--body-lo);color:var(--text);font-family:var(--font-dot);font-size:16px;overflow:hidden;overscroll-behavior:none}
+  body{margin:0;background:var(--body-lo);color:var(--text);font-family:var(--font-dot);font-size:19px;overflow:hidden;overscroll-behavior:none}
   button,select{font:inherit;color:inherit}
   button{background:none;border:0;padding:0;cursor:pointer}
   button:focus-visible,select:focus-visible{outline:3px solid var(--sel);outline-offset:2px}
@@ -63,7 +65,7 @@
   #cv,#bloom{position:absolute;inset:0;width:100%;height:100%;display:block}
   #cv{touch-action:none}
   #bloom{mix-blend-mode:screen;opacity:.5;pointer-events:none}
-  .plate{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 14px;font-size:12px;color:#8a8070;letter-spacing:.12em}
+  .plate{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 14px;font-size:16px;color:#8a8070;letter-spacing:.12em}
   .grille{flex:1;height:12px;background:repeating-linear-gradient(90deg,#070605 0 3px,transparent 3px 7px);opacity:.9;border-radius:2px}
 
   /* ---------- ドット絵アイコンのボタン ---------- */
@@ -75,7 +77,7 @@
   .help .icons .pix.g16{width:24px!important;height:24px!important}
   .dlg .pix.g16{width:48px!important;height:48px!important}
   .code{width:100%;resize:none;padding:8px 10px;background:#05060f;color:var(--text);border:3px solid var(--dim);border-radius:4px;
-    font:13px/1.5 var(--font-dot);word-break:break-all;-webkit-user-select:text;user-select:text}
+    font:17px/1.5 var(--font-dot);word-break:break-all;-webkit-user-select:text;user-select:text}
   .code::placeholder{color:var(--dim)}
   .ib{display:grid;place-items:center;background:var(--win);color:var(--dim);border:3px solid var(--dim);border-radius:4px;transition:transform .05s}
   .ib:active{transform:translateY(2px)}
@@ -115,18 +117,15 @@
   .seg button{position:relative;z-index:1;display:grid;place-items:center;color:var(--dim)}
   .seg button[aria-checked="true"]{color:var(--ink);--hi:#fffdf4}
   .seg button:active{transform:translateY(2px)}
-  .play{width:74px;height:74px;display:grid;place-items:center;background:var(--amber);color:#3a1d00;border:3px solid var(--amber-hi);border-radius:6px;
+  .play{width:96px;height:96px;display:grid;place-items:center;background:var(--amber);color:#3a1d00;border:3px solid var(--amber-hi);border-radius:6px;
     box-shadow:0 0 16px rgba(255,184,77,.45);transition:transform .05s}
   .play:active{transform:translateY(2px)}
-  .play .pix{width:40px;height:40px}
+  .play .pix{width:52px;height:52px}
   .transport{justify-self:center;align-self:center;display:flex;align-items:center;gap:6px}
-  .stop{width:42px;height:42px}
-  .stop .pix{width:24px;height:24px}
   #muteBtn .i-off{display:none}
   #muteBtn[aria-pressed="true"] .i-on{display:none}
   #muteBtn[aria-pressed="true"] .i-off{display:block}
   #muteBtn[aria-pressed="true"]{background:var(--win);color:var(--warn);border-color:rgba(255,154,154,.8);box-shadow:0 0 8px rgba(255,154,154,.35)}
-  #muteBtn.nudge{animation:blink .5s steps(1) 6}
   .play .i-pause{display:none}
   .play[aria-pressed="true"] .i-play{display:none}
   .play[aria-pressed="true"] .i-pause{display:block}
@@ -139,18 +138,20 @@
   .vleds button.on{background:var(--amber);box-shadow:0 0 4px rgba(255,184,77,.85)}
 
   /* メッセージと確認 */
-  .msg{position:absolute;left:12px;right:12px;bottom:220px;z-index:3;padding:10px 14px;font-size:16px;line-height:1.6;
+  .msg{position:absolute;left:12px;right:12px;bottom:220px;z-index:3;padding:10px 14px;font-size:20px;line-height:1.6;
     background:var(--win);border:3px solid var(--line);border-radius:6px;box-shadow:0 0 0 3px var(--win)}
   .msg .caret{display:inline-block;width:10px;height:7px;margin-left:4px;background:currentColor;clip-path:polygon(0 0,100% 0,50% 100%);animation:blink 1s steps(1) infinite}
   .dlg-wrap{position:absolute;inset:0;z-index:6;display:grid;place-items:center;padding:20px;background:rgba(2,3,10,.55)}
   .dlg{width:100%;max-width:300px;padding:18px 16px 16px;background:var(--win);border:3px solid var(--line);border-radius:6px;box-shadow:0 0 0 3px var(--win),0 0 0 6px rgba(245,241,230,.22);
     display:flex;flex-direction:column;gap:16px;align-items:center;text-align:center}
   .dlg .pix{width:36px;height:36px;color:var(--sel)}
-  .dlg p{margin:0;font-size:16px;line-height:1.7;white-space:pre-line}
+  .dlg p{margin:0;font-family:var(--font-read);font-size:20px;line-height:1.7;white-space:pre-line}
   .pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}
-  .wbtn{min-height:46px;border:3px solid var(--line);border-radius:4px;font-size:16px;padding:0 8px}
+  .wbtn{min-height:46px;border:3px solid var(--line);border-radius:4px;font-size:20px;padding:0 8px}
   .wbtn[aria-pressed="true"]{background:var(--line);color:var(--win)}
   .wbtn.yes{background:var(--sel);color:var(--ink);border-color:#fff3c4}
+  /* 3つ並びのボタンは、狭い画面で「やわら／か」のように途中で折り返さないよう、画面幅に合わせて文字を少し縮める */
+  .tri .wbtn{padding:0 2px;white-space:nowrap;font-size:min(20px,4.6vw)}
 
   .title-card{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;pointer-events:none;text-align:center;transition:opacity .6s steps(4)}
   .title-card.gone{opacity:0}
@@ -167,27 +168,27 @@
   .win-head{display:flex;align-items:center;gap:6px;padding:6px 6px 0}
   .win-head .ib{width:42px;height:42px;color:var(--text);border-color:var(--line)}
   .win-head .pix{width:24px;height:24px}
-  .win-head h2{flex:1;margin:0 0 0 8px;font-weight:400;font-size:16px;color:var(--sel)}
+  .win-head h2{flex:1;margin:0 0 0 8px;font-weight:400;font-size:20px;color:var(--sel)}
   .win-head [role="tab"]{flex:1;height:42px;display:grid;place-items:center;color:var(--dim)}
   .win-head [role="tab"][aria-selected="true"]{color:var(--sel);filter:drop-shadow(0 0 4px rgba(255,209,102,.55))}
   .win-head [role="tab"] .pix.g16{width:32px;height:32px}
   .win-rule{height:3px;margin:6px 6px 0;background:var(--line)}
   .win-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:14px 12px 24px;scrollbar-width:thin;scrollbar-color:var(--dim) transparent}
   .win-body section{display:flex;flex-direction:column;gap:12px}
-  .win-body h3{margin:10px 0 0;font-weight:400;font-size:16px;color:var(--sel)}
+  .win-body h3{margin:10px 0 0;font-weight:400;font-size:20px;color:var(--sel)}
   .win-body h3:first-child{margin-top:0}
   .win-body h3::before{content:"■ "}
-  .w-note{margin:0;font-size:14px;line-height:1.75;color:var(--dim)}
+  .w-note{margin:0;font-family:var(--font-read);font-size:18px;line-height:1.75;color:var(--dim)}
   .sel{width:100%;height:48px;-webkit-appearance:none;appearance:none;background:var(--win) no-repeat right 14px center/18px 12px;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 6 4' shape-rendering='crispEdges'%3E%3Cpath fill='%23ffd166' d='M0 0h6v1H0zM1 1h4v1H1zM2 2h2v1H2z'/%3E%3C/svg%3E");
-    border:3px solid var(--line);border-radius:4px;color:var(--text);font-size:16px;padding:0 44px 0 12px}
+    border:3px solid var(--line);border-radius:4px;color:var(--text);font-size:20px;padding:0 44px 0 12px}
   .sel option,.sel optgroup{background:#0b0f2a;color:#f5f1e6}
-  .uses{font-size:14px;color:var(--sel);letter-spacing:.06em}
+  .uses{font-size:18px;color:var(--sel);letter-spacing:.06em}
   .kb-row{display:grid;grid-template-columns:36px minmax(0,1fr);gap:8px}
-  .kb-oct{border:3px solid var(--dim);border-radius:4px;font-size:16px}
+  .kb-oct{border:3px solid var(--dim);border-radius:4px;font-size:20px}
   .kb{position:relative;display:grid;grid-template-columns:repeat(7,1fr);height:74px;border:3px solid var(--line);background:var(--line)}
   .key{position:relative}
-  .key.w{background:#f5f1e6;border-right:3px solid #0b0f2a;display:flex;align-items:flex-end;justify-content:center;padding-bottom:3px;font-size:12px;color:#0b0f2a}
+  .key.w{background:#f5f1e6;border-right:3px solid #0b0f2a;display:flex;align-items:flex-end;justify-content:center;padding-bottom:3px;font-size:16px;color:#0b0f2a}
   .key.w:nth-child(7){border-right:0}
   .key.b{position:absolute;top:0;width:11%;height:56%;background:#0b0f2a;z-index:1}
   .key.on{background:var(--c)!important}
@@ -197,7 +198,7 @@
   .key.b.on::before{bottom:7px}
   .key.b.on{box-shadow:inset 0 0 0 3px #0b0f2a}
   .key.root::after{content:"";position:absolute;left:50%;top:5px;width:6px;height:6px;margin-left:-3px;background:#0b0f2a;box-shadow:0 0 0 2px #fff3c4}
-  .w-count{font-size:14px;color:var(--dim);text-align:right}
+  .w-count{font-size:18px;color:var(--dim);text-align:right}
   .tri{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
   .meter{display:grid;grid-template-columns:42px minmax(0,1fr) 42px;gap:8px;align-items:center}
   .meter > button{height:42px;border:3px solid var(--line);border-radius:4px;display:grid;place-items:center}
@@ -205,25 +206,25 @@
   .blocks{display:grid;grid-template-columns:repeat(var(--n,10),minmax(0,1fr));gap:3px;height:28px}
   .blocks button{background:#1f2750}
   .blocks button.on{background:var(--sel);box-shadow:0 0 6px rgba(255,209,102,.6)}
-  .meter-val{font-size:14px;color:var(--dim);text-align:right}
+  .meter-val{font-size:18px;color:var(--dim);text-align:center}   /* 右端だと、右手の親指で操作したときに隠れるので中央に */
   /* イコライザー */
   .eq{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
   .eq-band{display:flex;flex-direction:column;align-items:center;gap:6px}
-  .eq-hz{font-size:14px;color:var(--text);letter-spacing:.02em}
+  .eq-hz{font-size:18px;color:var(--text);letter-spacing:.02em}
   .eq-col{position:relative;width:100%;max-width:46px;display:flex;flex-direction:column;gap:3px;padding:4px;border:3px solid var(--line);border-radius:4px;touch-action:none;cursor:ns-resize}
   .eq-col i{display:block;height:13px;background:#1f2750}
   .eq-col i.zero{background:#3a4680}
   .eq-col i.on{background:var(--sel);box-shadow:0 0 6px rgba(255,209,102,.6)}
   .eq-col i.on.cut{background:#7fd7ff;box-shadow:0 0 6px rgba(127,215,255,.6)}
   .eq-col:focus-visible{outline:3px solid var(--sel);outline-offset:2px}
-  .eq-val{font-size:14px;color:var(--dim);min-height:1.2em}
+  .eq-val{font-size:18px;color:var(--dim);min-height:1.2em}
   .cvd-kb{height:64px;pointer-events:none}
   .cvd-kb .key.b{box-shadow:inset 0 0 0 3px #0b0f2a;border-top:0}
-  .eq-ends{display:flex;justify-content:space-between;font-size:14px;color:var(--dim)}
+  .eq-ends{display:flex;justify-content:space-between;font-size:18px;color:var(--dim)}
   .help{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:22px}
   .help .icons .orb-img{width:32px;height:32px;display:block}
-  .help li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:center;font-size:14px;line-height:1.7;color:var(--dim)}
-  .help b{font-weight:400;color:var(--text)}
+  .help li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:center;font-family:var(--font-read);font-size:18px;line-height:1.7;color:var(--dim)}
+  .help b{font-weight:600;color:var(--text)}
   .help .icons{display:flex;justify-content:center;gap:4px;min-width:60px}
   .help .icons span{width:28px;height:28px;display:grid;place-items:center;border:2px solid var(--dim);border-radius:3px;color:var(--text)}
   .help .icons .pix{width:18px;height:18px}
@@ -231,8 +232,8 @@
 
   /* はじめる前の待機画面 */
   .standby{position:absolute;inset:0;z-index:7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;background:radial-gradient(60% 50% at 50% 45%,#0b0d16,#020308)}
-  .standby p{position:relative;margin:0;font-size:16px;color:#9aa4c8;letter-spacing:.06em;animation:breathe 3.4s ease-in-out infinite;text-shadow:0 0 8px rgba(140,170,255,.6)}
-  .standby small{position:relative;font-size:13px;color:#5d6588}
+  .standby p{position:relative;margin:0;font-size:20px;color:#9aa4c8;letter-spacing:.06em;animation:breathe 3.4s ease-in-out infinite;text-shadow:0 0 8px rgba(140,170,255,.6)}
+  .standby small{position:relative;font-size:17px;color:#5d6588}
   @keyframes breathe{50%{opacity:.3}}
   .standby canvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
   .standby.go{background:none;cursor:default}
@@ -295,7 +296,6 @@
               <button class="play" id="play" aria-pressed="false" aria-label="再生">
                 <span class="i-play" data-icon="play"></span><span class="i-pause" data-icon="pause"></span>
               </button>
-              <button class="ib stop" id="stopBtn" data-icon="stop" aria-label="停止（最初に戻る）"></button>
             </div>
             <div class="spd">
               <button class="ib" id="spUp" data-icon="rabbit" aria-label="速くする"></button>
@@ -599,7 +599,6 @@
   const countOn = () => enabled.filter(Boolean).length;
   const intIn = (v, a, b) => Number.isInteger(v) && v >= a && v <= b;
 
-  let restoredNotes = false;
   (function restore() {
     const d = loadSaved();
     if (!d || typeof d !== 'object') { fillFromScale(); return; }
@@ -623,7 +622,6 @@
     if (typeof d.en === 'string' && /^[01]{36}$/.test(d.en) && d.en.includes('1')) { for (let i = 0; i < COUNT; i++) enabled[i] = d.en[i] === '1'; }
     else fillFromScale();
     if (Array.isArray(d.notes)) {
-      restoredNotes = true;
       notes = d.notes.slice(0, MAX_NOTES)
         .filter(a => Array.isArray(a) && Number.isFinite(a[0]) && Number.isFinite(a[1]) && intIn(a[2], LOW, LOW + COUNT - 1))
         .map(a => mkNote(a[0], a[1], a[2], a[3]));
@@ -631,7 +629,6 @@
   })();
   rebuildPool();
   for (const n of notes) if (!enabled[n.midi - LOW]) n.midi = randPitch();
-  if (!restoredNotes) notes = [[.18,.14],[.52,.2],[.8,.32],[.3,.44],[.7,.5],[.16,.74],[.56,.8],[.86,.9]].map(([x, y], i) => mkNote(x, y, randPitch(), i === 4));
   let saveTimer = 0;
   const snapshot = () => ({root:S.root, scaleKey:S.scaleKey, lastKey:S.lastKey, speed2:S.speed, vol:S.vol, wn:S.wn, pn:S.pn, rev:S.rev, dly:S.dly, q:S.q, pattern:S.pattern,
     voice:S.voice, tune:S.tune, eq:S.eq, tame:S.tame, cvd:S.cvd, en:enabled.map(v => v ? '1' : '0').join(''),
@@ -639,7 +636,7 @@
   function saveSoon() { clearTimeout(saveTimer); saveTimer = setTimeout(() => writeSaved(snapshot()), 300); }
   // iOSでは pagehide が来ないままタブが破棄されることがあるので、裏に回った時点でも保存する
   const saveNow = () => { clearTimeout(saveTimer); writeSaved(snapshot()); };
-  window.addEventListener('pagehide', () => { autoMute(); saveNow(); });
+  window.addEventListener('pagehide', saveNow);
   // 音の処理を止める・ページを閉じる前に、出口の音量を一瞬で（約0.06秒）しぼる。
   // 残響が鳴っている途中でいきなり止まると「プッ」というノイズになるため
   let faded = false;
@@ -653,7 +650,7 @@
   }
 
   // ================= audio =================
-  let ac = null, bus, wet, fb, dsend, volGain, muteGain, eqNodes = [], muted = false, autoMuted = false;
+  let ac = null, bus, wet, fb, dsend, volGain, muteGain, eqNodes = [], muted = false;
   const EQ_BANDS = [['lowshelf', 120, '120'], ['peaking', 400, '400'], ['peaking', 1000, '1k'], ['peaking', 2800, '2.8k'], ['highshelf', 6000, '6k']];
   const EQ_DB = 2;   // ランプ1つ＝2dB（-12〜+12dB）
   // iPhoneで画面を消して戻ると、音の処理が「中断」のまま戻らないことがある（Safariの仕様・不具合）。
@@ -928,7 +925,8 @@
   }
 
   // ================= sequencer（光が玉を通る時刻を先読みして正確に予約） =================
-  const LOOKAHEAD = 0.12, BG_LOOKAHEAD = 1.2;
+  // 裏では、スマホのタイマーが1秒おき程度まで間引かれることがあるので、2秒先まで予約しておく
+  const LOOKAHEAD = 0.12, BG_LOOKAHEAD = 2;
   let playing = false, slot = 0, stepT = 0, curKey = 'R', cur = DIRS.R, barV = 0, playClock = 0, schedUntil = 0, clock = 0;
   // 画面に見えている光は、予約（先読み）より LOOKAHEAD 秒だけ遅れて進む。
   // 予約側が次の段に移っても、見えている光が前の段の端に着くまでは前の段を描く（以前はここで光が一瞬止まって見えていた）
@@ -1491,8 +1489,7 @@
   cv.addEventListener('contextmenu', e => e.preventDefault());
 
   // ================= ミュート =================
-  // スピーカーボタンで音を消す／戻す。裏に回ったり画面を消したりすると自動でミュートになり、
-  // 戻ってきたらボタンで戻す（iPhoneは、ボタンを押すような操作の中でしか音を再開できないため）
+  // スピーカーボタンで音を消す／戻す（自動でミュートにはしない）
   const muteBtn = $('#muteBtn');
   function renderMute() {
     muteBtn.setAttribute('aria-pressed', String(muted));
@@ -1511,18 +1508,8 @@
     }
     renderMute();
   }
-  function autoMute() {
-    if (!powered || muted) return;
-    autoMuted = true; setMuted(true);
-  }
-  function returnFromBackground() {
-    if (!powered || !autoMuted || !muted) return;
-    if (!coarse) { autoMuted = false; ensureAudio(); setMuted(false); return; }   // パソコンはそのまま戻せる
-    muteBtn.classList.remove('nudge'); void muteBtn.offsetWidth; muteBtn.classList.add('nudge');
-  }
   muteBtn.addEventListener('click', () => {
     if (!powered) return;
-    autoMuted = false; muteBtn.classList.remove('nudge');
     if (muted) {
       // 止まったままの音の処理は、再開を頼んでも戻らないことがある（iPhone）。確実に鳴らすため、このタップの中で作り直す
       if (ac && ac.state !== 'running') resumeFailed = true;
@@ -1671,15 +1658,6 @@
   standby.addEventListener('click', powerOn);
   standby.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); powerOn(); } });
   playBtn.addEventListener('click', () => { ensureAudio(); setPlaying(!playing); haptic(10); });
-  // 停止：止めて、次の再生は最初（1番目のマス・端から）になる
-  $('#stopBtn').addEventListener('click', () => {
-    if (!powered) return;
-    setPlaying(false);
-    slot = 0; stepT = 0; schedUntil = playClock; prevStep = null; pending.length = 0;
-    pickStep(); shownSlot = 0; shownKey = curKey; visProg = 0; renderTiles();
-    if (activeTile) activeTile.style.setProperty('--p', '0');
-    haptic(10);
-  });
 
   const erasingEl = $('#erasing');
   $$('[data-tool]').forEach(b => b.addEventListener('click', () => {
@@ -1814,12 +1792,12 @@
   $('#helpList').innerHTML = [
     [`<span class="icons"><img class="orb-img" src="${orbImage(205)}" alt=""></span>`, '水面をタップすると音の玉を浮かべることができます。玉をタップすると別の音になります。玉はドラッグで動かせます。'],
     [`<span class="icons"><img class="orb-img" src="${starImage(45)}" alt=""></span>`, '星の玉は、鳴るたびに音が変わります。出やすさは設定の音階タブで変えられます。'],
-    [ic('play', 'stop'), '光が水を渡り、通った玉の音が鳴ります。停止すると、次は最初から再生します。'],
+    [ic('play', 'pause'), '光が水を渡り、通った玉の音が鳴ります。もう一度押すと、一時停止します。'],
     [ic('arrow'), '光が進む方向です。タップすると右、下、左、上、？の順番で変わります。'],
     [ic('rabbit', 'turtle'), '光が渡る速さを変えられます。'],
     [ic('pencil', 'eraser'), '鉛筆は置くモード、消しゴムは消すモードです。'],
     [ic('dice', 'trash'), 'サイコロボタンで、玉の音を一気に変えることができます。ゴミ箱ボタンで玉を一気に消すことができます。'],
-    [ic('speaker', 'speakerOff'), 'スピーカーボタンで音を消したり戻したりできます。スマホでは、アプリを切り替えたり画面を消したりすると、自動で音が消えます。'],
+    [ic('speaker', 'speakerOff'), 'スピーカーボタンで音を消したり戻したりできます。再生中は、アプリを切り替えたり画面を消したりしても流れ続けます（端末によっては止まることがあります）。'],
     [ic('gear'), '音階や音の聞こえ方、玉の見え方などを設定できます。作ったデータをほかの人に共有する場合は、フロッピーアイコンの項目から操作してください。']
   ].map(([i, t]) => `<li>${i}<span>${t.replace(/。(?=.)/g, '。<br>')}</span></li>`).join('');   // 句点ごとに改行
   $('#helpBtn').addEventListener('click', () => { if (!powered) return; settingsWin.hidden = true; helpWin.hidden = false; haptic(5); });
@@ -2118,24 +2096,11 @@
   // ================= lifecycle =================
   document.addEventListener('visibilitychange', () => {
     last = performance.now();
-    // 裏に回ったら、まず音を消す（保存などの処理はそのあと）
     lastBg = performance.now();
-    // スマホは裏に回ったら音を消す。パソコンは別のタブに移っても流し続ける（動画サイトと同じ感覚で）
-    if (document.hidden) { if (coarse) autoMute(); saveNow(); pointers.clear(); for (const n of notes) n.held = false; return; }
-    returnFromBackground();
+    // 裏に回っても音は消さない（スマホでもパソコンでも流し続ける）。音を消すのはスピーカーボタンだけ
+    if (document.hidden) { saveNow(); pointers.clear(); for (const n of notes) n.held = false; return; }
     if (playing) keepAwake(true);
   });
-  // 画面を消す・アプリを切り替える操作の途中で、ページが「裏に回った」と知らされるのが遅れる端末がある（Claudeアプリ内など）。
-  // スマホではフォーカスが外れた時点でも音を消す（パソコンでは別のウィンドウを触るたびに消えると困るので対象外）
-  const coarse = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
-  // ただし、キーや音階のプルダウンを開いたときもフォーカスが動く端末があるので、入力欄を触っている間は対象外
-  if (coarse) window.addEventListener('blur', () => {
-    const el = document.activeElement;
-    if (el && /^(SELECT|INPUT|TEXTAREA)$/.test(el.tagName)) return;
-    autoMute();
-  });
-  document.addEventListener('freeze', () => autoMute());
-  window.addEventListener('pageshow', e => { if (e.persisted) returnFromBackground(); });
   // iPhoneのSafariは pointerdown では音の再開を認めないことがあるので、touchend と click でも再開を試みる
   for (const ev of ['touchend', 'click']) document.addEventListener(ev, () => { if (powered && !muted && ac && ac.state !== 'running' && !document.hidden) ensureAudio(); }, {capture:true, passive:true});
   // 戻ってきたときに音が止まったままなら、タップで戻ることを知らせる
