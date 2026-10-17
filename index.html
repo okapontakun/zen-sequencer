@@ -35,7 +35,8 @@
     --font-dot:"DotGothic16","Osaka-Mono","MS Gothic",monospace;
     color-scheme:dark;
   }
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  /* ボタンを素早く続けて押したときに、ダブルタップで画面が拡大されないようにする（2本指での拡大とスクロールはそのまま使える） */
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
   [hidden]{display:none!important}
   html,body{height:100%}
   html{background:var(--body-lo)}
