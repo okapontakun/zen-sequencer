@@ -690,7 +690,7 @@
   (() => {
     const rates = [48000, 44100];
     const tick = () => {
-      const sr = rates[0]; if (sr == null) return;
+      const sr = rates[0]; if (sr == null || ac) return;   // 音が動き出したら、もう前もって作らない（必要な分はその場で作る）
       if (irCache[sr]) { rates.shift(); setTimeout(tick, 0); return; }
       if ((irPending[sr] || (irPending[sr] = irJob(sr)))(16000)) rates.shift();
       setTimeout(tick, 4);
@@ -709,7 +709,10 @@
       try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return;
-      ac = new AC();
+      // スマホは音の処理に余裕を持たせる（小さすぎる区切りで処理すると、重なったときや鳴らし始めにプツプツしやすい）。
+      // 'balanced' はタップから音が出るまでの遅れが気にならない程度のまま、途切れにくくする設定
+      const mobile = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+      try { ac = new AC(mobile ? {latencyHint:'balanced'} : undefined); } catch (e) { ac = new AC(); }
       // 出口：超低域カット → やわらかいコンプ → 耳に刺さる高域を少し下げる → 音量 → 割れ防止のリミッター
       const hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 35;
       const master = ac.createDynamicsCompressor();
@@ -791,22 +794,22 @@
       }
     }
     registerProcessor('zen-noise', ZenNoise);`;
-  let wnGain = null, pnGain = null, noiseFallback = null;
+  let wnGain = null, pnGain = null, noiseEnsure = null;
   function setupNoise(dest) {
     const ctxNow = ac;
-    noiseFallback = null;
+    // ノイズの音源は、ホワイト／ピンクを実際に使うときに初めて作る（使わない人の端末に余計な負担をかけない。
+    // 特に音を鳴らし始めた直後は、音の処理に余裕がないとプツプツしやすいため）
     wnGain = ac.createGain(); pnGain = ac.createGain();
     wnGain.gain.value = 0; pnGain.gain.value = 0;
     wnGain.connect(dest); pnGain.connect(dest);
     const wg = wnGain, pg = pnGain;
-    const viaWorklet = () => {
+    const loadWorklet = () => {
       const url = URL.createObjectURL(new Blob([NOISE_WORKLET], {type:'application/javascript'}));
-      return ctxNow.audioWorklet.addModule(url).finally(() => URL.revokeObjectURL(url)).then(() => {
-        for (const [g, pink] of [[wg, false], [pg, true]]) {
-          const n = new AudioWorkletNode(ctxNow, 'zen-noise', {numberOfInputs:0, outputChannelCount:[2], processorOptions:{pink}});
-          n.connect(g);
-        }
-      });
+      return ctxNow.audioWorklet.addModule(url).finally(() => URL.revokeObjectURL(url));
+    };
+    const viaWorklet = (g, pink) => {
+      const n = new AudioWorkletNode(ctxNow, 'zen-noise', {numberOfInputs:0, outputChannelCount:[2], processorOptions:{pink}});
+      n.connect(g);
     };
     // 保険：AudioWorklet が使えない環境（手元のファイルで開いたときなど）だけ、長さの違う3本のノイズを重ねてくり返す
     // （周期がそろうのは数分に一度で、繰り返しはほぼ聞き取れない）。作るのが重いので、そのノイズを使うときに初めて作る
@@ -829,17 +832,26 @@
       }
     };
     const built = {wn:false, pn:false};
-    const ensureBuffers = () => {
-      if (S.wn > 0 && !built.wn) { built.wn = true; viaBuffers(wg, false); }
-      if (S.pn > 0 && !built.pn) { built.pn = true; viaBuffers(pg, true); }
+    let make = null, loading = false;   // make：音源を1本作る関数（AudioWorklet か、使えなければ保険のくり返し）
+    const build = () => {
+      if (S.wn > 0 && !built.wn) { built.wn = true; make(wg, false); }
+      if (S.pn > 0 && !built.pn) { built.pn = true; make(pg, true); }
     };
-    (ctxNow.audioWorklet && window.AudioWorkletNode ? viaWorklet() : Promise.reject()).catch(() => { if (ac === ctxNow) { noiseFallback = ensureBuffers; ensureBuffers(); } });
+    noiseEnsure = () => {
+      if (ac !== ctxNow || !(S.wn > 0 || S.pn > 0)) return;
+      if (make) { build(); return; }
+      if (loading) return;
+      loading = true;
+      (ctxNow.audioWorklet && window.AudioWorkletNode ? loadWorklet().then(() => viaWorklet) : Promise.reject())
+        .catch(() => viaBuffers)
+        .then(fn => { make = fn; if (ac === ctxNow) build(); });
+    };
     applyNoise();
   }
   // 10段階。耳に強いホワイトノイズは控えめな最大値にする。一時停止中は止める
   function applyNoise() {
     if (!ac || !wnGain) return;
-    if (noiseFallback) noiseFallback();
+    if (noiseEnsure) noiseEnsure();
     const t = ac.currentTime, on = playing ? 1 : 0;
     wnGain.gain.setTargetAtTime(Math.pow(S.wn / 10, 2) * 0.39 * on, t, 0.15);
     pnGain.gain.setTargetAtTime(Math.pow(S.pn / 10, 2) * 0.5 * on, t, 0.15);
@@ -857,9 +869,12 @@
   }
   // 基準ピッチ：440Hz / 432Hz / ドを528Hzにあわせる
   const A4 = () => S.tune === '432' ? 432 : S.tune === '528' ? 528 * Math.pow(2, -3 / 12) : 440;
+  // 音は「いま」ではなく少しだけ先に予約する。iPhoneでは鳴らし始めの直後に音の時計が止まったり飛んだりして、
+  // 「いま」に置いた音の立ち上がりが欠けて「プツッ」と鳴るため（URLに ?a=0 をつけると、比べるために以前の鳴らし方に戻る）
+  const FIX_A = !/[?&]a=0(&|$)/.test(location.search);
   function playNote(midi, pan = 0, delaySec = 0) {
     if (muted || !audioReady()) return;
-    const t = ac.currentTime + delaySec;
+    const t = ac.currentTime + (FIX_A ? Math.max(delaySec, 0.01) : delaySec);
     const chip = S.voice === 'chip';
     const f = A4() * Math.pow(2, (midi - 69) / 12) * (chip ? 2 : 1);
     if (!Number.isFinite(f) || !Number.isFinite(t)) return;
@@ -1551,7 +1566,11 @@
     rips.push(center);
     oct.forEach((m, i) => rips.push({x:center.x, y:center.y, t:TC + i * 0.065 + (i === oct.length - 1 && i > 0 ? 0.03 : 0), m, gl:i, quiet:true}));
     for (const r of rips) { r.fired = false; r.pan = r.quiet ? (r.gl - 2.5) * 0.08 : Math.max(-0.6, Math.min(0.6, (r.x / CW) * 2 - 1)) * 0.7; }
-    const Rmax = Math.hypot(CW, CH) * 0.62, END = reduceMotion ? 0.9 : TC + 2.4, t0 = performance.now();
+    // はじまりの音は、画面のコマを待たずに音の時計でまとめて予約する（起動直後で画面の処理が重くても、音の頭が欠けない）。
+    // そのぶん演出も同じだけ遅らせて、波紋と音をそろえる
+    const LEAD = FIX_A ? 0.1 : 0;
+    if (FIX_A) for (const r of rips) if (r.m != null) playNote(r.m, r.big ? 0 : r.pan, LEAD + r.t);
+    const Rmax = Math.hypot(CW, CH) * 0.62, END = reduceMotion ? 0.9 : TC + 2.4, t0 = performance.now() + LEAD * 1000;
     const bg = vctx.createRadialGradient(CW * 0.5, CH * 0.45, 0, CW * 0.5, CH * 0.45, Math.max(CW, CH) * 0.6);
     bg.addColorStop(0, '#0b0d16'); bg.addColorStop(1, '#020308');
     const ease = x => 1 - Math.pow(1 - Math.min(1, Math.max(0, x)), 3);
@@ -1560,7 +1579,7 @@
       const t = (now - t0) / 1000;
       for (const r of rips) if (!r.fired && t >= r.t) {
         r.fired = true;
-        if (r.m != null) playNote(r.m, r.big ? 0 : r.pan, 0);
+        if (r.m != null && !FIX_A) playNote(r.m, r.big ? 0 : r.pan, 0);
         if (!reduceMotion && !r.quiet) r.big ? disturb(r.x, r.y, 11, 1.7) : disturb(r.x, r.y, 8, 1.1);
       }
       vctx.clearRect(0, 0, CW, CH);
@@ -1601,7 +1620,7 @@
       }
     }
     // 1コマ目はすぐ描く（暗幕を描く前に裏の画面が一瞬見えないように）
-    step(t0);
+    step(performance.now());
   }
   function powerOn(e) {
     if (powered) return;
