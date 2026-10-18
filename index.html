@@ -271,6 +271,19 @@
   .flick{position:absolute;inset:0;z-index:9;pointer-events:none;background:#000;opacity:0;animation:flick 4.3s steps(1) infinite}
   @keyframes flick{0%,100%{opacity:0}41%{opacity:.035}42%{opacity:0}77%{opacity:.025}78%{opacity:0}}
   @keyframes blink{50%{opacity:0}}
+  /* 負荷を下げる：止まっている間（コマ数を落とす状態・裏のタブ）は、画面ぜんぶの重ね膜のアニメを止める。
+     そうしないと、絵は15コマなのに、膜だけが毎秒60回、画面全体を合成し直してしまう（スマホが熱くなる） */
+  .crt.still .roll,.crt.still .noise,.crt.still .flick{animation-play-state:paused}
+  /* ざらつきの膜は動く幅が最大43pxなので、画面の2倍の大きさにしなくても同じ見た目。小さくして描く面積を減らす */
+  .crt.cheap .noise{inset:-48px}
+  /* 計測用：ブラウン管の膜を全部消して、重さを比べる */
+  .crt.nocrt :is(.scan,.mask,.vig,.glass,.roll,.noise,.flick){display:none}
+  /* 計測メニュー（?debug のときだけ作られる）。文字だけは操作を邪魔しない */
+  .dbg{position:absolute;left:6px;z-index:30;pointer-events:none;font:10px/1.4 "DotGothic16",monospace;color:#cfe;opacity:.8}
+  .dbg pre{margin:0 0 2px;padding:2px 4px;background:rgba(0,0,0,.55);white-space:pre;pointer-events:none}
+  .dbg .g{display:grid;grid-template-columns:repeat(2,auto);gap:3px;pointer-events:none}
+  .dbg button{pointer-events:auto;min-height:32px;min-width:84px;padding:0 6px;font:inherit;color:#cfe;background:rgba(0,0,0,.6);border:1px solid #6a8;border-radius:4px;touch-action:manipulation}
+  .dbg button.off{color:#f99;border-color:#a66}
   /* 幅の狭いスマホ（iPhone SE など）では、余白を広くとるとボタンが細くなりすぎるので、余白と右上の名前を控えめにする */
   @media (max-width: 359px){
     .hud-bot{--pad-x:20px}
@@ -1066,7 +1079,15 @@
   let SW = 4, SH = 4, wave = new Float32Array(16), wavePrev = new Float32Array(16), wimg = null, bottom = null, sky = null;
   let swX = new Float32Array(4), swY = new Float32Array(4);
   let CW = 300, CH = 600, DPR = 1;
-  const F = {x0:0, y0:0, w:1, h:1};
+  // ---- 負荷対策のスイッチ（ふだんは全部ON。?debug のときだけ、画面の計測メニューから切り替えられる） ----
+  const DBG = /[?&]debug\b/.test(location.search);
+  const OPT = {crt:1, dpr:1, spr:1, bloom:1, idle:1, nocrt:0};
+  const OPT_KEY = 'zen-debug-opt';
+  if (DBG) { try { Object.assign(OPT, JSON.parse(localStorage.getItem(OPT_KEY) || '{}')); } catch (e) {} }
+  // スマホ（指で触る端末）は画素数を抑える：2倍→1.5倍で、描く点が約44%減るが、見た目の差はほとんどない
+  const coarse = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+  const dprNow = () => Math.min(window.devicePixelRatio || 1, OPT.dpr && coarse ? 1.5 : 2);
+  const F ={x0:0, y0:0, w:1, h:1};
   const LX = 0.6, LY = -0.8;
   const TONE = new Uint8ClampedArray(1024);
   for (let i = 0; i < 1024; i++) TONE[i] = 255 * (1 - Math.exp(-(i / 256) * 1.6));
@@ -1086,7 +1107,7 @@
   function layout() {
     const r = crt.getBoundingClientRect();
     CW = Math.max(100, Math.floor(r.width)); CH = Math.max(160, Math.floor(r.height));
-    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    DPR = dprNow(); clearSprites(); bloomDue = true;   // 解像度が変わったら、絵の使い回しは作り直す。ブルームも空になるので描き直す
     stage.style.width = CW + 'px'; stage.style.height = CH + 'px'; stage.style.left = '0px'; stage.style.top = '0px';
     cv.width = Math.round(CW * DPR); cv.height = Math.round(CH * DPR);
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -1275,6 +1296,31 @@
     const lt = S.cvd ? 16 * (1 - pcPos(n.midi)) : 0;
     return {x, y:y0 + lift, R, lt, hue:n.q ? (t * 40 + n.ph * 60) % 360 : (S.cvd ? cvdHue(n.midi) : HUES[n.midi % 12])};
   }
+  // ---- 玉の見た目の使い回し（スプライト） ----
+  // 毎コマ・玉ごとにグラデーションを作るのは重いので、玉1個ぶんの見た目を小さな絵に1度だけ描いておき、
+  // 大きさ（拡大）・濃さ（globalAlpha）・向き（回転）は貼るときに変える。グラデーションの色は同じで透明度だけが変わるので、見た目は同じ。
+  // 色相・明るさ・光り具合は少しずつ丸めて絵の数を抑える（星の色相は5度刻み、光り具合は12段階）。数が増えすぎたら古いものから捨てる
+  const sprites = new Map(), RU = 20;
+  const clearSprites = () => { for (const c of sprites.values()) c.width = c.height = 0; sprites.clear(); };   // メモリもすぐ返す   // RU：絵を描くときの玉の半径（貼るときに R / RU 倍する）
+  let bloomDue = true;
+  function sprite(key, half, build) {
+    let c = sprites.get(key);
+    if (c) { sprites.delete(key); sprites.set(key, c); return c; }   // 使ったものは後ろへ回す（捨てるのは、使われていない古いものから）
+    c = document.createElement('canvas'); c.width = c.height = Math.ceil(half * 2 * DPR); c._h = half;
+    const g = c.getContext('2d'); g.scale(DPR, DPR); g.translate(half, half); g.lineJoin = 'round';
+    build(g); sprites.set(key, c);
+    // 数が増えすぎたら古いものから捨てる。iPhone は捨てた絵のメモリをすぐ返さないことがあり、絵の合計が上限を超えると
+    // 描画が止まるので、捨てるときは大きさを0にしてすぐ返す。上限も控えめにする
+    if (sprites.size > 240) { const k = sprites.keys().next().value, old = sprites.get(k); sprites.delete(k); old.width = old.height = 0; }
+    return c;
+  }
+  function blit(c, x, y, s, a, rot) {
+    ctx.globalAlpha = a > 1 ? 1 : a; const h = c._h * s;
+    if (rot) { ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.drawImage(c, -h, -h, h * 2, h * 2); ctx.restore(); }
+    else ctx.drawImage(c, x - h, y - h, h * 2, h * 2);
+    ctx.globalAlpha = 1;   // 後ろで描く輪郭などに薄さが残らないように戻す
+  }
+  const hueQ = (n, hue) => n.q ? Math.round(hue / 5) * 5 % 360 : Math.round(hue);
   function drawOrbUnder(n, t, alpha) {
     if (CALM) drawCalmUnder(n, t, alpha); else drawGlassUnder(n, t, alpha, alpha);
   }
@@ -1297,7 +1343,19 @@
   function drawCalmUnder(n, t, alpha) {
     const {x, y, R, hue} = orbGeom(n, t, alpha), v = visOf(n) * alpha;
     const gr = R * (2.4 + n.glow * 2.2);
-    const g = ctx.createRadialGradient(x, y, 0, x, y, gr);
+    if (OPT.spr) {
+      const a = (n.q ? 0 : 0.16 * v) + n.glow * 0.18;
+      if (a < 0.002) return;
+      const h = hueQ(n, hue);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      blit(sprite('u' + h, 48, g => {
+        const gd = g.createRadialGradient(0, 0, 0, 0, 0, 48);
+        gd.addColorStop(0, `hsla(${h},80%,60%,1)`); gd.addColorStop(1, `hsla(${h},80%,60%,0)`);
+        g.fillStyle = gd; g.fillRect(-48, -48, 96, 96);
+      }), x, y, gr / 48, a);
+      ctx.restore(); return;
+    }
+    const g =ctx.createRadialGradient(x, y, 0, x, y, gr);
     // 星の玉は、ふだんは水面の丸い光だまりを出さない（丸い玉の名残に見えるため）。鳴ったときの光だけ広がる
     g.addColorStop(0, `hsla(${hue},80%,60%,${(n.q ? 0 : 0.16 * v) + n.glow * 0.18})`); g.addColorStop(1, `hsla(${hue},80%,60%,0)`);
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g;
@@ -1312,7 +1370,24 @@
     const r = R * 1.25;
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineJoin = 'round';
     let g;
-    if (star) {
+    const sp = OPT.spr, h = hueQ(n, hue), lq = Math.round(lt), kb = Math.round(Math.min(1, k) * 12), kq = kb / 12, sc0 = R / RU;
+    if (sp && star) {
+      // 星の本体（重ねた層と芯）をまとめて1枚に描いておく。薄い層の足し算なので、濃さを後から掛けても同じ
+      blit(sprite(`s${h}|${lq}|${kb}`, 36, c => {
+        c.globalCompositeOperation = 'lighter';
+        for (let i = 0; i < 6; i++) { c.fillStyle = `hsla(${h},75%,${58 + lq + kq * 16}%,0.045)`; starPath(c, 0, 0, RU * (1.2 - i * 0.072) * 1.32); c.fill(); }
+        c.fillStyle = `hsla(${h},75%,${62 + lq + kq * 16}%,0.24)`; starPath(c, 0, 0, RU * 0.8 * 1.32); c.fill();
+        c.fillStyle = `hsla(${h},75%,${70 + lq + kq * 14}%,0.16)`; starPath(c, 0, 0, RU * 0.5 * 1.32); c.fill();
+      }), x, y, sc0, v, rot);
+    } else if (sp) {
+      blit(sprite(`o${h}|${lq}|${kb}`, 26, c => {
+        const gd = c.createRadialGradient(0, 0, 0, 0, 0, RU * 1.25);
+        gd.addColorStop(0, `hsla(${h},75%,${62 + lq + kq * 18}%,0.62)`);
+        gd.addColorStop(0.45, `hsla(${h},75%,${55 + lq}%,0.34)`);
+        gd.addColorStop(1, `hsla(${h},75%,${50 + lq}%,0)`);
+        c.fillStyle = gd; c.beginPath(); c.arc(0, 0, RU * 1.25, 0, TAU); c.fill();
+      }), x, y, sc0, v);
+    } else if (star) {
       // 丸い玉と同じぼけ方にするため、大きさを少しずつ変えた星を薄く重ねる。
       // 外側ほど薄く、中心ほど重なって明るくなるので、ふちが水に溶けるようにぼける（ぼかしフィルタは端末で動かないことがあるので使わない）
       const LAYERS = 6;
@@ -1348,6 +1423,15 @@
     const eg = Math.pow(n.glow, 1.4) * alpha;
     if (eg > 0.02) {
       const rr = R * (1 + k * 0.12);
+      if (sp) {
+        blit(sprite(`${star ? 'G' : 'g'}${h}`, 28, c => {
+          const gd = c.createRadialGradient(0, 0, 0, 0, 0, RU * (star ? 1.3 : 1));
+          gd.addColorStop(0, `hsla(${h},90%,85%,0.45)`); gd.addColorStop(1, `hsla(${h},90%,70%,0.12)`);
+          c.fillStyle = gd; if (star) starPath(c, 0, 0, RU * 1.32); else { c.beginPath(); c.arc(0, 0, RU, 0, TAU); }
+          c.fill();
+        }), x, y, rr / RU, eg, star ? rot : 0);
+        ctx.restore(); return;
+      }
       g = ctx.createRadialGradient(x, y, 0, x, y, rr * (star ? 1.3 : 1));
       g.addColorStop(0, `hsla(${hue},90%,85%,${0.45 * eg})`); g.addColorStop(1, `hsla(${hue},90%,70%,${0.12 * eg})`);
       ctx.fillStyle = g; shape(rr); ctx.fill();
@@ -1415,6 +1499,7 @@
         const fy = F.y0 + F.h * (0.5 + 0.47 * Math.sin(t * 0.09 * (1 + i * 0.23) + i * 1.3));
         const a = Math.pow(Math.max(0, Math.sin(t * (0.9 + i * 0.27) + i * 1.7)), 2);
         if (a < 0.02) continue;
+        // （蛍の光は小さくて急にしぼむ形なので、貼り付けだと少しぼやける。数も7個までなので、そのまま描く）
         const g = ctx.createRadialGradient(fx, fy, 0, fx, fy, 9);
         g.addColorStop(0, `rgba(255,222,130,${a * 0.9})`); g.addColorStop(0.25, `rgba(255,200,90,${a * 0.35})`); g.addColorStop(1, 'rgba(255,200,90,0)');
         ctx.fillStyle = g; ctx.fillRect(fx - 9, fy - 9, 18, 18);
@@ -1426,8 +1511,12 @@
       ctx.save(); ctx.strokeStyle = 'rgba(255,154,154,.85)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 5]);
       ctx.beginPath(); ctx.arc(p.x, p.y, 24, 0, TAU); ctx.stroke(); ctx.restore();
     }
-    bctx.imageSmoothingEnabled = true; bctx.clearRect(0, 0, bloomCv.width, bloomCv.height); bctx.drawImage(cv, 0, 0, bloomCv.width, bloomCv.height);
+    // ブルームは1/6の大きさのぼんやりした光なので、2コマに1回の更新でも見分けがつかない（毎コマ縮小コピーする分の負荷が半分になる）
+    if (!OPT.bloom || bloomDue || (bloomTick ^= 1)) {
+      bloomDue = false; bctx.imageSmoothingEnabled = true; bctx.clearRect(0, 0, bloomCv.width, bloomCv.height); bctx.drawImage(cv, 0, 0, bloomCv.width, bloomCv.height);
+    }
   }
+  let bloomTick = 0;
 
   // ================= loop（毎秒30コマ） =================
   const fading = [];
@@ -1481,7 +1570,9 @@
     // 落とすのは、かなり静かになってから（光や波紋が消えきるのを待つ）。タイトルの演出が終わって最初の再生が始まるまでは、
     // 何秒かかっても落とさない（初めて開いた人の演出が、端末の速さに関係なくなめらかに見えるように）。落とし先も15コマで、気づかれにくくする
     const idle = !playing && hasPlayed && now - lastTouch > 8000 && now - lastSoundAt > 8000 && now - pausedAt > 8000 && !notes.some(n => n.pulse > 0.02 || n.glow > 0.02 || n.pop > 0.02);
-    if (acc + 0.004 >= 1 / (idle ? IDLE_FPS : FPS) && powered) {
+    isIdle = idle; setStill(idle);   // 止まっている間は、ブラウン管の膜のアニメも止める（触ったらこの次のコマで再開）
+    if (acc + 0.004 >= 1 / (idle && OPT.idle ? IDLE_FPS : FPS) && powered) {
+      const t0 = DBG ? performance.now() : 0;
       for (const n of notes) {
         n.pulse = Math.max(0, n.pulse - acc * 1.3); n.glow = Math.max(0, n.glow - acc * 0.45); n.ringAge += acc; n.pop = Math.max(0, n.pop - acc * 3);
         if (!CALM && !reduceMotion && Math.random() < 0.015 * Math.max(1, acc * FPS)) disturb(ox(n), oy(n), radiusOf(n) + 3, 0.25);
@@ -1493,8 +1584,58 @@
       // 水の動きは1コマが30分の1秒ぶん。コマ数が落ちているときは、経った時間に合わせて回数を増やす（速さが変わらないように）
       for (let i = Math.min(4, acc > 1.6 / FPS ? Math.round(acc * FPS) : 1); i > 0; i--) stepWater();
       acc = 0; render();
+      if (DBG) { dbgMs += performance.now() - t0; dbgN++; }
     }
     requestAnimationFrame(frame);
+  }
+  // ブラウン管の膜のアニメを止める／動かす（クラスが変わるときだけ触る）
+  let isIdle = false, stillOn = false;
+  function setStill(on) {
+    on = !!(on && OPT.crt);
+    if (on !== stillOn) { stillOn = on; crt.classList.toggle('still', on); }
+  }
+  document.addEventListener('visibilitychange', () => { if (document.hidden) setStill(true); });
+
+  // ================= 計測メニュー（?debug のときだけ） =================
+  // 負荷対策を1つずつ切って、実機で重さの差を見るための小さな表示。ふだんの画面には出ない
+  let dbgMs = 0, dbgN = 0;
+  function applyOpt() {
+    crt.classList.toggle('cheap', !!OPT.crt); crt.classList.toggle('nocrt', !!OPT.nocrt);
+    stillOn = !stillOn; setStill(isIdle);   // 状態を確かめ直して反映する
+  }
+  applyOpt();
+  if (DBG) {
+    const box = document.createElement('div'); box.className = 'dbg';
+    const info = document.createElement('pre'), grid = document.createElement('div'); grid.className = 'g';
+    box.append(info, grid); crt.appendChild(box);
+    window.zenDbg = {OPT, render, cv};   // 同じ瞬間にON/OFFで描いて見比べるための取っ手
+    const BTN = [['crt', '1 CRT止め/軽'], ['dpr', '2 解像度1.5'], ['spr', '3 玉スプライト'], ['bloom', '4 ブルーム間引'], ['idle', '5 待機15fps'], ['nocrt', '膜ぜんぶ消す']];
+    const save = () => { try { localStorage.setItem(OPT_KEY, JSON.stringify(OPT)); } catch (e) {} };
+    // 最適化は ON が通常。「膜ぜんぶ消す」だけは、押して消している間が ON（赤くなる）
+    const paint = () => { for (const b of grid.children) if (b.dataset.k) { const on = !!OPT[b.dataset.k], off = b.dataset.k === 'nocrt' ? on : !on; b.classList.toggle('off', off); b.textContent = b.dataset.t + (on ? ' ON' : ' OFF'); } };
+    const apply = k => {
+      if (k === 'dpr') { laidDpr = 0; relayoutNow(); }   // 解像度は作り直しが要る
+      if (k === 'spr') clearSprites();
+      applyOpt(); paint(); save();
+    };
+    for (const [k, label] of BTN) {
+      const b = document.createElement('button'); b.dataset.k = k; b.dataset.t = label;
+      b.onclick = () => { OPT[k] = OPT[k] ? 0 : 1; apply(k); };
+      grid.appendChild(b);
+    }
+    const rs = document.createElement('button'); rs.textContent = 'reset';
+    rs.onclick = () => { Object.assign(OPT, {crt:1, dpr:1, spr:1, bloom:1, idle:1, nocrt:0}); try { localStorage.removeItem(OPT_KEY); } catch (e) {} laidDpr = 0; relayoutNow(); sprites.clear(); applyOpt(); paint(); };
+    const hd = document.createElement('button'); hd.textContent = 'hide';   // メニューをたたむ（数字だけ残る）
+    hd.onclick = () => { for (const b of grid.children) if (b !== hd) b.hidden = !b.hidden; hd.textContent = hd.textContent === 'hide' ? 'show' : 'hide'; };
+    grid.append(rs, hd);
+    paint();
+    let t0 = performance.now();
+    setInterval(() => {
+      const now = performance.now(), fps = dbgN / ((now - t0) / 1000), ms = dbgN ? dbgMs / dbgN : 0;
+      dbgMs = 0; dbgN = 0; t0 = now;
+      box.style.top = (hudTop.offsetHeight + 2) + 'px';
+      info.textContent = `${fps.toFixed(1)}fps ${ms.toFixed(2)}ms ${isIdle ? 'idle' : playing ? 'play' : 'stop'}\norb ${notes.length} dpr ${DPR} spr ${sprites.size}`;
+    }, 1000);
   }
 
   // ================= pointer =================
@@ -2329,7 +2470,7 @@
   // 画面サイズ変更：iOSのアドレスバーの出入りなどで何度も呼ばれるので、まとめて1回・サイズが変わったときだけ作り直す
   let laidW = 0, laidH = 0, laidDpr = 0, relayoutTimer = 0;
   const relayoutNow = () => {
-    const r = crt.getBoundingClientRect(), w = Math.floor(r.width), h = Math.floor(r.height), dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const r = crt.getBoundingClientRect(), w = Math.floor(r.width), h = Math.floor(r.height), dpr = dprNow();
     if (w === laidW && h === laidH && dpr === laidDpr) return;
     laidW = w; laidH = h; laidDpr = dpr;
     layout(); if (powered) render();
