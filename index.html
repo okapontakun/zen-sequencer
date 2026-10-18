@@ -1096,13 +1096,15 @@
   const bloomCv = $('#bloom'), bctx = bloomCv.getContext('2d');
   const hudTop = $('#hudTop'), hudBot = $('#hudBot'), msgEl = $('#msg');
   const waterCv = document.createElement('canvas'), wctx = waterCv.getContext('2d');
+  const lightCv = document.createElement('canvas'), lctx = lightCv.getContext('2d'), scratchCv = document.createElement('canvas'), sctx = scratchCv.getContext('2d');   // ブルーム補正用の小さな作業用の絵
+  const waterB = document.createElement('canvas'), wbctx = waterB.getContext('2d');   // 水面にブルームを混ぜた版（waterCv は玉のレンズ用にそのまま残す）
   const CELL = 2.5;
   let SW = 4, SH = 4, wave = new Float32Array(16), wavePrev = new Float32Array(16), wimg = null, bottom = null, sky = null;
   let swX = new Float32Array(4), swY = new Float32Array(4);
   let CW = 300, CH = 600, DPR = 1;
   // ---- 負荷対策のスイッチ（ふだんは全部ON。?debug のときだけ、画面の計測メニューから切り替えられる） ----
   const DBG = /[?&]debug\b/.test(location.search);
-  const OPT_DEF = {crt:1, dpr:1, spr:1, bloom:1, idle:1, nocrt:0, fx:1, bin:1, nobloom:0};
+  const OPT_DEF = {crt:1, dpr:1, spr:1, bloom:1, idle:1, nocrt:0, fx:1, bin:1, nobloom:0, b4:1, lite:1, wb:1};
   const OPT = {...OPT_DEF};   // 古い保存値にないキーは、ここの初期値のまま残る
   const OPT_KEY = 'zen-debug-opt';
   if (DBG) { try { Object.assign(OPT, JSON.parse(localStorage.getItem(OPT_KEY) || '{}')); } catch (e) {} }
@@ -1133,7 +1135,7 @@
     stage.style.width = CW + 'px'; stage.style.height = CH + 'px'; stage.style.left = '0px'; stage.style.top = '0px';
     cv.width = Math.round(CW * DPR); cv.height = Math.round(CH * DPR);
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    bloomCv.width = Math.ceil(CW / 6); bloomCv.height = Math.ceil(CH / 6);
+    bloomCv.width = lightCv.width = scratchCv.width = Math.ceil(CW / 6); bloomCv.height = lightCv.height = scratchCv.height = Math.ceil(CH / 6);
     const topH = hudTop.offsetHeight, botH = hudBot.offsetHeight;
     msgEl.style.bottom = (botH + 6) + 'px';
     // 下のボタンのすぐ上まで玉を置けると窮屈なので、水面の下端とボタンの間に少しすき間をとる
@@ -1141,7 +1143,7 @@
     SW = Math.ceil(CW / CELL) + 2; SH = Math.ceil(CH / CELL) + 2;
     wave = new Float32Array(SW * SH); wavePrev = new Float32Array(SW * SH);
     swX = new Float32Array(SW); swY = new Float32Array(SH);
-    waterCv.width = SW; waterCv.height = SH;
+    waterCv.width = SW; waterCv.height = SH; waterB.width = SW; waterB.height = SH;
     wimg = wctx.createImageData(SW, SH);
     buildTextures(); buildShore(); renderTiles();
   }
@@ -1228,43 +1230,52 @@
       }
     }
     wctx.putImageData(wimg, 0, 0);
+    let src = waterCv;
+    // ブルームを、拡大する前の小さな水の絵に混ぜる（全面の重ね描きが要らなくなる）。重ね方は screen 50%（元のブルームと同じ）
+    // 玉や光の線は、このあと光を足す重ね方で描くので、ブルームが下になっても見た目はほぼ同じ
+    if (OPT.wb && !OPT.nobloom) {
+      wbctx.globalCompositeOperation = 'source-over'; wbctx.globalAlpha = 1; wbctx.drawImage(waterCv, 0, 0);
+      wbctx.globalCompositeOperation = 'screen'; wbctx.globalAlpha = 0.5; wbctx.imageSmoothingEnabled = true;
+      wbctx.drawImage(bloomCv, 0, 0, bloomCv.width, bloomCv.height, 0, 0, CW / CELL, CH / CELL);
+      wbctx.globalAlpha = 1; wbctx.globalCompositeOperation = 'source-over'; src = waterB;
+    }
     ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(waterCv, 0, 0, SW, SH, 0, 0, SW * CELL, SH * CELL);
+    ctx.drawImage(src, 0, 0, SW, SH, 0, 0, SW * CELL, SH * CELL);
   }
 
-  function drawBar() {
+  function drawBar(c = ctx, bl) {   // c：描き先。bl：ブルーム用の縮小描き（位置の更新や波紋は、ふつうの描画のときだけ）
     if (!playing && stepT === 0) return;
-    updateVisual();
+    if (!bl) updateVisual();
     const act = (playing ? 1 : 0.45) * barAlpha, dir = Math.sign(visCur.to - visCur.from), trail = 80, pts = [];
     // 光の尾：端に向かって水面に溶けるように
     const trailFade = a => {
-      const g = visCur.ax === 'x' ? ctx.createLinearGradient(0, F.y0, 0, F.y0 + F.h) : ctx.createLinearGradient(F.x0, 0, F.x0 + F.w, 0);
+      const g = visCur.ax === 'x' ? c.createLinearGradient(0, F.y0, 0, F.y0 + F.h) : c.createLinearGradient(F.x0, 0, F.x0 + F.w, 0);
       g.addColorStop(0, 'rgba(255,170,80,0)'); g.addColorStop(0.15, `rgba(255,170,80,${a})`); g.addColorStop(0.85, `rgba(255,170,80,${a})`); g.addColorStop(1, 'rgba(255,170,80,0)');
       return g;
     };
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
+    c.save();
+    c.globalCompositeOperation = 'lighter';
     if (visCur.ax === 'x') {
       const X = F.x0 + barV * F.w;
-      for (let k = 0; k < 8; k++) { ctx.fillStyle = trailFade(0.11 * act * (1 - k / 8)); ctx.fillRect(dir > 0 ? X - (k + 1) * 10 : X + k * 10, F.y0, 10, F.h); }
+      for (let k = 0; k < 8; k++) { c.fillStyle = trailFade(0.11 * act * (1 - k / 8)); c.fillRect(dir > 0 ? X - (k + 1) * 10 : X + k * 10, F.y0, 10, F.h); }
       for (let y = F.y0 - 6; y <= F.y0 + F.h + 6; y += 6) { const [gx] = slopeAt(X, y); pts.push(X + gx * 10, y); }
     } else {
       const Y = F.y0 + barV * F.h;
-      for (let k = 0; k < 8; k++) { ctx.fillStyle = trailFade(0.11 * act * (1 - k / 8)); ctx.fillRect(F.x0, dir > 0 ? Y - (k + 1) * 10 : Y + k * 10, F.w, 10); }
+      for (let k = 0; k < 8; k++) { c.fillStyle = trailFade(0.11 * act * (1 - k / 8)); c.fillRect(F.x0, dir > 0 ? Y - (k + 1) * 10 : Y + k * 10, F.w, 10); }
       for (let x = F.x0 - 6; x <= F.x0 + F.w + 6; x += 6) { const [, gy] = slopeAt(x, Y); pts.push(x, Y + gy * 10); }
     }
-    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    c.lineJoin = 'round'; c.lineCap = 'round';
     for (const [lw, a, col] of [[14, 0.10, '255,180,90'], [5, 0.32, '255,205,140'], [1.6, 0.95, '255,246,220']]) {
       // 線の両端は水面に溶けるように消える
-      const lg = visCur.ax === 'x' ? ctx.createLinearGradient(0, F.y0, 0, F.y0 + F.h) : ctx.createLinearGradient(F.x0, 0, F.x0 + F.w, 0);
+      const lg = visCur.ax === 'x' ? c.createLinearGradient(0, F.y0, 0, F.y0 + F.h) : c.createLinearGradient(F.x0, 0, F.x0 + F.w, 0);
       lg.addColorStop(0, `rgba(${col},0)`); lg.addColorStop(0.12, `rgba(${col},${a * act})`); lg.addColorStop(0.88, `rgba(${col},${a * act})`); lg.addColorStop(1, `rgba(${col},0)`);
-      ctx.lineWidth = lw; ctx.strokeStyle = lg;
-      ctx.beginPath();
-      for (let i = 0; i < pts.length; i += 2) { if (i) ctx.lineTo(pts[i], pts[i + 1]); else ctx.moveTo(pts[i], pts[i + 1]); }
-      ctx.stroke();
+      c.lineWidth = lw; c.strokeStyle = lg;
+      c.beginPath();
+      for (let i = 0; i < pts.length; i += 2) { if (i) c.lineTo(pts[i], pts[i + 1]); else c.moveTo(pts[i], pts[i + 1]); }
+      c.stroke();
     }
-    ctx.restore();
-    if (playing && Math.random() < 0.3) {
+    c.restore();
+    if (!bl && playing && Math.random() < 0.3) {
       const u = Math.random();
       if (visCur.ax === 'x') disturb(F.x0 + barV * F.w, F.y0 + u * F.h, 5, 0.12);
       else disturb(F.x0 + u * F.w, F.y0 + barV * F.h, 5, 0.12);
@@ -1323,8 +1334,9 @@
   // 大きさ（拡大）・濃さ（globalAlpha）・向き（回転）は貼るときに変える。グラデーションの色は同じで透明度だけが変わるので、見た目は同じ。
   // 色相・明るさ・光り具合は少しずつ丸めて絵の数を抑える（星の色相は5度刻み、光り具合は12段階）。数が増えすぎたら古いものから捨てる
   const sprites = new Map(), RU = 20;
-  const clearSprites = () => { for (const c of sprites.values()) c.width = c.height = 0; sprites.clear(); };   // メモリもすぐ返す   // RU：絵を描くときの玉の半径（貼るときに R / RU 倍する）
-  let bloomDue = true;
+  const clearSprites = () => { for (const c of sprites.values()) c.width = c.height = 0; sprites.clear(); };   // メモリもすぐ返す
+  // RU：絵を描くときの玉の半径（貼るときに R / RU 倍する）
+  let bloomDue = true, gc = ctx;   // gc：絵を貼る先（ふだんは池の絵。ブルーム用の縮小描きのときだけ小さい絵に切り替える）
   function sprite(key, half, build) {
     let c = sprites.get(key);
     if (c) { sprites.delete(key); sprites.set(key, c); return c; }   // 使ったものは後ろへ回す（捨てるのは、使われていない古いものから）
@@ -1337,10 +1349,10 @@
     return c;
   }
   function blit(c, x, y, s, a, rot) {
-    ctx.globalAlpha = a > 1 ? 1 : a; const h = c._h * s;
-    if (rot) { ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.drawImage(c, -h, -h, h * 2, h * 2); ctx.restore(); }
-    else ctx.drawImage(c, x - h, y - h, h * 2, h * 2);
-    ctx.globalAlpha = 1;   // 後ろで描く輪郭などに薄さが残らないように戻す
+    gc.globalAlpha = a > 1 ? 1 : a; const h = c._h * s;
+    if (rot) { gc.save(); gc.translate(x, y); gc.rotate(rot); gc.drawImage(c, -h, -h, h * 2, h * 2); gc.restore(); }
+    else gc.drawImage(c, x - h, y - h, h * 2, h * 2);
+    gc.globalAlpha = 1;   // 後ろで描く輪郭などに薄さが残らないように戻す
   }
   // 星の玉は色がゆっくり移り変わる。色ごとに絵を作ると数が増えすぎて作り直しばかりになるので、
   // 30度ごとの12色の絵だけを作り、となり合う2色を、混ぜ具合を変えて重ねる（どれも光を足す重ね方なので、中間の色とほぼ同じに見える）
@@ -1349,6 +1361,41 @@
     const hf = (((hue % 360) + 360) % 360) / 30, i = Math.floor(hf), f = hf - i;
     if (f < 0.99) blit(make((i % 12) * 30), x, y, s, a * (1 - f), rot);
     if (f > 0.01) blit(make(((i + 1) % 12) * 30), x, y, s, a * f, rot);
+  }
+  // 玉の絵の作り方（ふつうの描画とブルーム用の縮小描きで同じものを使う）
+  const underMake = h => sprite('u' + h, 48, g => {
+    const gd = g.createRadialGradient(0, 0, 0, 0, 0, 48);
+    gd.addColorStop(0, `hsla(${h},80%,60%,1)`); gd.addColorStop(1, `hsla(${h},80%,60%,0)`);
+    g.fillStyle = gd; g.fillRect(-48, -48, 96, 96);
+  });
+  const bodyMake = (star, lq, kb, kq) => h => star ? sprite(`s${h}|${lq}|${kb}`, 36, c => {
+    c.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 6; i++) { c.fillStyle = `hsla(${h},75%,${58 + lq + kq * 16}%,0.045)`; starPath(c, 0, 0, RU * (1.2 - i * 0.072) * 1.32); c.fill(); }
+    c.fillStyle = `hsla(${h},75%,${62 + lq + kq * 16}%,0.24)`; starPath(c, 0, 0, RU * 0.8 * 1.32); c.fill();
+    c.fillStyle = `hsla(${h},75%,${70 + lq + kq * 14}%,0.16)`; starPath(c, 0, 0, RU * 0.5 * 1.32); c.fill();
+  }) : sprite(`o${h}|${lq}|${kb}`, 26, c => {
+    const gd = c.createRadialGradient(0, 0, 0, 0, 0, RU * 1.25);
+    gd.addColorStop(0, `hsla(${h},75%,${62 + lq + kq * 18}%,0.62)`);
+    gd.addColorStop(0.45, `hsla(${h},75%,${55 + lq}%,0.34)`);
+    gd.addColorStop(1, `hsla(${h},75%,${50 + lq}%,0)`);
+    c.fillStyle = gd; c.beginPath(); c.arc(0, 0, RU * 1.25, 0, TAU); c.fill();
+  });
+  const glowMake = star => h => sprite(`${star ? 'G' : 'g'}${h}`, 28, c => {
+    const gd = c.createRadialGradient(0, 0, 0, 0, 0, RU * (star ? 1.3 : 1));
+    gd.addColorStop(0, `hsla(${h},90%,85%,0.45)`); gd.addColorStop(1, `hsla(${h},90%,70%,0.12)`);
+    c.fillStyle = gd; if (star) starPath(c, 0, 0, RU * 1.32); else { c.beginPath(); c.arc(0, 0, RU, 0, TAU); }
+    c.fill();
+  });
+  // ブルーム用：玉の光だけを、同じ絵の貼り付けで小さい絵（gc）に描く。水の中の光だまり・玉の本体・鳴った直後の明るさの3つ（細い輪郭は小さすぎて効かないので省く）
+  function bloomOrb(n, t, alpha) {
+    const {x, y, R, hue, lt} = orbGeom(n, t, alpha), v = visOf(n) * alpha, k = n.pulse, star = n.q;
+    const rot = n.tilt + (reduceMotion ? 0 : Math.sin(t * 0.4 + n.ph) * 0.12);
+    const ua = (star ? 0 : 0.16 * v) + n.glow * 0.18;
+    if (ua >= 0.002) blitHue(n, hue, underMake, x, y, R * (2.4 + n.glow * 2.2) / 48, ua);
+    const kb = Math.round(Math.min(1, k) * 6);
+    blitHue(n, hue, bodyMake(star, Math.round(lt), kb, kb / 6), x, y, R / RU, v, star ? rot : 0);
+    const eg = Math.pow(n.glow, 1.4) * alpha;
+    if (eg > 0.02) blitHue(n, hue, glowMake(star), x, y, R * (1 + k * 0.12) / RU, eg, star ? rot : 0);
   }
   function drawOrbUnder(n, t, alpha) {
     if (CALM) drawCalmUnder(n, t, alpha); else drawGlassUnder(n, t, alpha, alpha);
@@ -1376,11 +1423,7 @@
       const a = (n.q ? 0 : 0.16 * v) + n.glow * 0.18;
       if (a < 0.002) return;
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
-      blitHue(n, hue, h => sprite('u' + h, 48, g => {
-        const gd = g.createRadialGradient(0, 0, 0, 0, 0, 48);
-        gd.addColorStop(0, `hsla(${h},80%,60%,1)`); gd.addColorStop(1, `hsla(${h},80%,60%,0)`);
-        g.fillStyle = gd; g.fillRect(-48, -48, 96, 96);
-      }), x, y, gr / 48, a);
+      blitHue(n, hue, underMake, x, y, gr / 48, a);
       ctx.restore(); return;
     }
     const g =ctx.createRadialGradient(x, y, 0, x, y, gr);
@@ -1401,20 +1444,9 @@
     const sp = OPT.spr, lq = Math.round(lt), kb = Math.round(Math.min(1, k) * 6), kq = kb / 6, sc0 = R / RU;   // 光り具合は6段階（絵の数を抑える）
     if (sp && star) {
       // 星の本体（重ねた層と芯）をまとめて1枚に描いておく。薄い層の足し算なので、濃さを後から掛けても同じ
-      blitHue(n, hue, h => sprite(`s${h}|${lq}|${kb}`, 36, c => {
-        c.globalCompositeOperation = 'lighter';
-        for (let i = 0; i < 6; i++) { c.fillStyle = `hsla(${h},75%,${58 + lq + kq * 16}%,0.045)`; starPath(c, 0, 0, RU * (1.2 - i * 0.072) * 1.32); c.fill(); }
-        c.fillStyle = `hsla(${h},75%,${62 + lq + kq * 16}%,0.24)`; starPath(c, 0, 0, RU * 0.8 * 1.32); c.fill();
-        c.fillStyle = `hsla(${h},75%,${70 + lq + kq * 14}%,0.16)`; starPath(c, 0, 0, RU * 0.5 * 1.32); c.fill();
-      }), x, y, sc0, v, rot);
+      blitHue(n, hue, bodyMake(true, lq, kb, kq), x, y, sc0, v, rot);
     } else if (sp) {
-      blitHue(n, hue, h => sprite(`o${h}|${lq}|${kb}`, 26, c => {
-        const gd = c.createRadialGradient(0, 0, 0, 0, 0, RU * 1.25);
-        gd.addColorStop(0, `hsla(${h},75%,${62 + lq + kq * 18}%,0.62)`);
-        gd.addColorStop(0.45, `hsla(${h},75%,${55 + lq}%,0.34)`);
-        gd.addColorStop(1, `hsla(${h},75%,${50 + lq}%,0)`);
-        c.fillStyle = gd; c.beginPath(); c.arc(0, 0, RU * 1.25, 0, TAU); c.fill();
-      }), x, y, sc0, v);
+      blitHue(n, hue, bodyMake(false, lq, kb, kq), x, y, sc0, v);
     } else if (star) {
       // 丸い玉と同じぼけ方にするため、大きさを少しずつ変えた星を薄く重ねる。
       // 外側ほど薄く、中心ほど重なって明るくなるので、ふちが水に溶けるようにぼける（ぼかしフィルタは端末で動かないことがあるので使わない）
@@ -1452,12 +1484,7 @@
     if (eg > 0.02) {
       const rr = R * (1 + k * 0.12);
       if (sp) {
-        blitHue(n, hue, h => sprite(`${star ? 'G' : 'g'}${h}`, 28, c => {
-          const gd = c.createRadialGradient(0, 0, 0, 0, 0, RU * (star ? 1.3 : 1));
-          gd.addColorStop(0, `hsla(${h},90%,85%,0.45)`); gd.addColorStop(1, `hsla(${h},90%,70%,0.12)`);
-          c.fillStyle = gd; if (star) starPath(c, 0, 0, RU * 1.32); else { c.beginPath(); c.arc(0, 0, RU, 0, TAU); }
-          c.fill();
-        }), x, y, rr / RU, eg, star ? rot : 0);
+        blitHue(n, hue, glowMake(star), x, y, rr / RU, eg, star ? rot : 0);
         ctx.restore(); return;
       }
       g = ctx.createRadialGradient(x, y, 0, x, y, rr * (star ? 1.3 : 1));
@@ -1505,6 +1532,53 @@
     ctx.restore();
   }
 
+  // 蛍（c：描き先）。ブルーム用の縮小描きにも同じものを使う
+  function drawFireflies(c, t) {
+    if (reduceMotion) return;
+    c.save(); c.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 7; i++) {
+      const fx = F.x0 + F.w * (0.5 + 0.47 * Math.sin(t * 0.11 * (1 + i * 0.17) + i * 2.1));
+      const fy = F.y0 + F.h * (0.5 + 0.47 * Math.sin(t * 0.09 * (1 + i * 0.23) + i * 1.3));
+      const a = Math.pow(Math.max(0, Math.sin(t * (0.9 + i * 0.27) + i * 1.7)), 2);
+      if (a < 0.02) continue;
+      // （蛍の光は小さくて急にしぼむ形なので、貼り付けだと少しぼやける。数も7個までなので、そのまま描く）
+      const g = c.createRadialGradient(fx, fy, 0, fx, fy, 9);
+      g.addColorStop(0, `rgba(255,222,130,${a * 0.9})`); g.addColorStop(0.25, `rgba(255,200,90,${a * 0.35})`); g.addColorStop(1, 'rgba(255,200,90,0)');
+      c.fillStyle = g; c.fillRect(fx - 9, fy - 9, 18, 18);
+    }
+    c.restore();
+  }
+  // ブルーム用の縮小描き：全面を読み戻す代わりに、光るものだけを1/6の絵に直接描く
+  // 下地は小さい水の絵を縮めたもの（暗い水も、うっすらもやの元になっているため）。その上に光を足す重ね方で、玉・光の線・蛍を描く
+  function drawBloomSrc(t) {
+    const sx = bloomCv.width / CW, sy = bloomCv.height / CH;
+    bctx.setTransform(sx, 0, 0, sy, 0, 0); bctx.imageSmoothingEnabled = true;
+    bctx.globalCompositeOperation = 'source-over'; bctx.globalAlpha = 1;
+    bctx.drawImage(waterCv, 0, 0, SW, SH, 0, 0, SW * CELL, SH * CELL);
+    if (!OPT.wb) { drawLights(bctx, t); bctx.setTransform(1, 0, 0, 1, 0, 0); return; }
+    // 水面でブルームを混ぜる場合の補正：元のブルームは玉や光の線の「上」に screen で重なるので、明るい芯ほど足される光が減る（足した結果は頭打ちになる）。
+    // 水面に混ぜると玉は「下」になり、芯だけ明るすぎてしまう。そこで、光だけの絵を別に作り、ブルーム −= ブルーム × 光 ÷ 255 として芯のぶんだけ控えめにしておく
+    lctx.setTransform(sx, 0, 0, sy, 0, 0); lctx.globalCompositeOperation = 'source-over'; lctx.fillStyle = '#000'; lctx.fillRect(0, 0, CW, CH);
+    drawLights(lctx, t);
+    lctx.setTransform(1, 0, 0, 1, 0, 0);
+    bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.globalCompositeOperation = 'lighter'; bctx.drawImage(lightCv, 0, 0);
+    sctx.globalCompositeOperation = 'copy'; sctx.drawImage(bloomCv, 0, 0);
+    sctx.globalCompositeOperation = 'multiply'; sctx.drawImage(lightCv, 0, 0);
+    bctx.globalCompositeOperation = 'difference'; bctx.drawImage(scratchCv, 0, 0);   // 引き算（引く側のほうが必ず小さいので、差の絶対値がそのまま引き算になる）
+    bctx.globalCompositeOperation = 'source-over';
+  }
+  // 光るものだけを、描き先 c（もう縮小の変換はかけてある）に足す
+  function drawLights(c, t) {
+    c.globalCompositeOperation = 'lighter'; gc = c;
+    // 途中で失敗しても、玉を貼る先は必ず池の絵に戻す（戻らないと、玉が池に描かれなくなるため）
+    try {
+      drawBar(c, true);
+      for (const n of notes) bloomOrb(n, t, 1);
+      for (const f of fading) bloomOrb(f.n, t, Math.max(0, f.k));
+      drawFireflies(c, t);
+    } finally { gc = ctx; c.globalCompositeOperation = 'source-over'; }
+  }
+
   function render() {
     const t = clock;
     // 落ち着いた見た目では、鳴るたびの波紋をごく弱くして、玉ごとの丸い輪が増えないようにする
@@ -1520,32 +1594,23 @@
       if (f.k <= 0) { fading.splice(i, 1); continue; }
       drawOrb(f.n, t, f.k);
     }
-    if (!reduceMotion) {
-      ctx.save(); ctx.globalCompositeOperation = 'lighter';
-      for (let i = 0; i < 7; i++) {
-        const fx = F.x0 + F.w * (0.5 + 0.47 * Math.sin(t * 0.11 * (1 + i * 0.17) + i * 2.1));
-        const fy = F.y0 + F.h * (0.5 + 0.47 * Math.sin(t * 0.09 * (1 + i * 0.23) + i * 1.3));
-        const a = Math.pow(Math.max(0, Math.sin(t * (0.9 + i * 0.27) + i * 1.7)), 2);
-        if (a < 0.02) continue;
-        // （蛍の光は小さくて急にしぼむ形なので、貼り付けだと少しぼやける。数も7個までなので、そのまま描く）
-        const g = ctx.createRadialGradient(fx, fy, 0, fx, fy, 9);
-        g.addColorStop(0, `rgba(255,222,130,${a * 0.9})`); g.addColorStop(0.25, `rgba(255,200,90,${a * 0.35})`); g.addColorStop(1, 'rgba(255,200,90,0)');
-        ctx.fillStyle = g; ctx.fillRect(fx - 9, fy - 9, 18, 18);
-      }
-      ctx.restore();
-    }
+    drawFireflies(ctx, t);
     for (const p of pointers.values()) {
       if (!p.erase) continue;
       ctx.save(); ctx.strokeStyle = 'rgba(255,154,154,.85)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 5]);
       ctx.beginPath(); ctx.arc(p.x, p.y, 24, 0, TAU); ctx.stroke(); ctx.restore();
     }
-    // ブルームは1/6の大きさのぼんやりした光なので、2コマに1回の更新でも見分けがつかない（毎コマ縮小コピーする分の負荷が半分になる）
+    // ブルームは1/6の大きさのぼんやりした光なので、2コマに1回（ブルーム4コマ毎がONなら4回に1回）の更新でも見分けがつかない（毎コマ縮小コピーする分の負荷が減る）
     // 縮小コピーは、ブルームを重ねる「前」の絵から取る（重ねたあとから取ると、光が自分に戻って積もっていく）
-    if (!OPT.nobloom && (!OPT.bloom || bloomDue || (bloomTick ^= 1))) {
-      bloomDue = false; bctx.imageSmoothingEnabled = true; bctx.clearRect(0, 0, bloomCv.width, bloomCv.height); bctx.drawImage(cv, 0, 0, bloomCv.width, bloomCv.height);
+    // 水面でブルームを混ぜるときは、池の絵にブルームが入ってしまうので、池の絵を読まない「光だけ」の作り方に必ず切り替える（光だけの絵なら、もとに戻らない）
+    if (!OPT.nobloom && (bloomDue || (OPT.b4 ? (bloomTick = (bloomTick + 1) & 3) === 0 : !OPT.bloom || (bloomTick ^= 1)))) {
+      bloomDue = false;
+      if (OPT.lite || OPT.wb) drawBloomSrc(t);
+      else { bctx.imageSmoothingEnabled = true; bctx.clearRect(0, 0, bloomCv.width, bloomCv.height); bctx.drawImage(cv, 0, 0, bloomCv.width, bloomCv.height); }
     }
     // 池の絵は毎コマ水面で全面を塗り直すので、ここで重ねても前のコマの光は残らない。CSSの screen 50% と同じ重ね方
-    if (OPT.bin && !OPT.nobloom) {
+    // （水面でブルームを混ぜている場合は、drawWater の中で済んでいる）
+    if (OPT.bin && !OPT.nobloom && !OPT.wb) {
       ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = 0.5; ctx.imageSmoothingEnabled = true;
       ctx.drawImage(bloomCv, 0, 0, cv.width, cv.height); ctx.restore();
     }
@@ -1635,7 +1700,7 @@
   let dbgMs = 0, dbgN = 0;
   function applyOpt() {
     crt.classList.toggle('cheap', !!OPT.crt); crt.classList.toggle('nocrt', !!OPT.nocrt);
-    crt.classList.toggle('fxm', !!OPT.fx); crt.classList.toggle('bin', !!OPT.bin); crt.classList.toggle('nobloom', !!OPT.nobloom);
+    crt.classList.toggle('fxm', !!OPT.fx); crt.classList.toggle('bin', !!(OPT.bin || OPT.wb)); crt.classList.toggle('nobloom', !!OPT.nobloom);
     stillOn = !stillOn; setStill(isIdle);   // 状態を確かめ直して反映する
   }
   applyOpt();
@@ -1643,8 +1708,8 @@
     const box = document.createElement('div'); box.className = 'dbg';
     const info = document.createElement('pre'), grid = document.createElement('div'); grid.className = 'g';
     box.append(info, grid); crt.appendChild(box);
-    window.zenDbg = {OPT, render, cv};   // 同じ瞬間にON/OFFで描いて見比べるための取っ手
-    const BTN = [['crt', '1 CRT止め/軽'], ['dpr', '2 解像度1.5'], ['spr', '3 玉スプライト'], ['bloom', '4 ブルーム間引'], ['idle', '5 待機15fps'], ['fx', '6 飾りまとめ'], ['bin', '7 ブルーム内蔵'], ['nocrt', '膜ぜんぶ消す'], ['nobloom', 'ブルーム消す']];
+    window.zenDbg = {OPT, render, cv, bloomCv, waterCv, get notes() { return notes; }, get bloomDue() { return bloomDue; }, set bloomDue(v) { bloomDue = v; }};   // 同じ瞬間にON/OFFで描いて見比べるための取っ手
+    const BTN = [['crt', '1 CRT止め/軽'], ['dpr', '2 解像度1.5'], ['spr', '3 玉スプライト'], ['bloom', '4 ブルーム間引'], ['idle', '5 待機15fps'], ['fx', '6 飾りまとめ'], ['bin', '7 ブルーム内蔵'], ['b4', '8 ブルーム4コマ毎'], ['lite', '9 ブルーム光だけ'], ['wb', '10 ブルーム水面で'], ['nocrt', '膜ぜんぶ消す'], ['nobloom', 'ブルーム消す']];
     const save = () => { try { localStorage.setItem(OPT_KEY, JSON.stringify(OPT)); } catch (e) {} };
     // 最適化は ON が通常。「膜ぜんぶ消す」「ブルーム消す」だけは、押して消している間が ON（赤くなる）
     const paint = () => { for (const b of grid.children) if (b.dataset.k) { const on = !!OPT[b.dataset.k], off = b.dataset.k === 'nocrt' || b.dataset.k === 'nobloom' ? on : !on; b.classList.toggle('off', off); b.textContent = b.dataset.t + (on ? ' ON' : ' OFF'); } };
@@ -1660,7 +1725,7 @@
       grid.appendChild(b);
     }
     const rs = document.createElement('button'); rs.textContent = 'reset';
-    rs.onclick = () => { Object.assign(OPT, OPT_DEF); bloomDue = true; try { localStorage.removeItem(OPT_KEY); } catch (e) {} laidDpr = 0; relayoutNow(); sprites.clear(); applyOpt(); paint(); };
+    rs.onclick = () => { Object.assign(OPT, OPT_DEF); bloomDue = true; try { localStorage.removeItem(OPT_KEY); } catch (e) {} laidDpr = 0; relayoutNow(); clearSprites(); applyOpt(); paint(); };
     const hd = document.createElement('button'); hd.textContent = 'hide';   // メニューをたたむ（数字だけ残る）
     hd.onclick = () => { for (const b of grid.children) if (b !== hd) b.hidden = !b.hidden; hd.textContent = hd.textContent === 'hide' ? 'show' : 'hide'; };
     grid.append(rs, hd);
