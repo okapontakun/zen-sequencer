@@ -405,7 +405,7 @@
               <div class="meter-val" id="vQ"></div>
             </section>
             <section data-panel="sound" hidden>
-              <h3>音量</h3>
+              <h3>玉の音量</h3>
               <div class="meter" id="mVol"></div>
               <h3>音色</h3>
               <div class="pair" id="voice"><button class="wbtn" data-v="soft">やわらか</button><button class="wbtn" data-v="chip">ピコピコ</button></div>
@@ -908,7 +908,10 @@
     if (!ac) return;
     // 値をいきなり切り替えると「プツッ」と鳴るので、なめらかに寄せる
     const t = ac.currentTime, set = (prm, v) => { prm.cancelScheduledValues(t); prm.setTargetAtTime(v, t, 0.05); };
-    set(volGain.gain, Math.pow(S.vol / 10, 1.6));
+    // 音量のつまみは「玉の音量」。玉の音の入口でしぼるので、ノイズの音量は変わらない
+    // （出口の volGain は、ページを閉じるときなどに全体をしぼるためだけに使う）
+    set(volGain.gain, 1);
+    set(bus.gain, Math.pow(S.vol / 10, 1.6));
     set(wet.gain, (S.rev / 10) * 1.4);
     const d = S.dly / 10;
     set(dsend.gain, d * 0.55);
@@ -1593,7 +1596,23 @@
       navigator.mediaSession.setActionHandler('pause', () => setPlaying(false));
     } catch (e) {}
   }
+  // 一時停止したら、まだ鳴り始めていない玉の音（先読みで予約しておいた分）を取り消す。
+  // 裏では2秒先まで予約しているので、取り消さないと、ロック画面で一時停止してもしばらく玉の音が鳴り続けていた
+  function cancelPendingNotes() {
+    if (!ac) return;
+    const now = ac.currentTime;
+    for (let i = voices.length - 1; i >= 0; i--) {
+      const v = voices[i];
+      if (v.t0 <= now + 0.005) continue;   // もう鳴り始めた音は、自然に消えるのを待つ
+      try { v.g.gain.cancelScheduledValues(now); v.g.gain.setValueAtTime(0, now); v.oscs.forEach(o => o.stop(v.t0)); } catch (e) {}
+      voices.splice(i, 1);
+    }
+    pending.length = 0;   // 取り消した音の光らせる予定も消す
+  }
   function setPlaying(on) {
+    if (!on && playing) cancelPendingNotes();
+    // 再開するときは、取り消した予約の分だけ先へ進めて、無音のすき間ができないようにする
+    if (on && !playing && schedUntil - playClock > LOOKAHEAD) playClock = schedUntil - LOOKAHEAD;
     playing = on; applyNoise();
     // 一時停止しても再生プレーヤーは止めない（無音を流し続ける）。止めると、次に鳴らすときにタップが必要になるため
     try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = on ? 'playing' : 'paused'; } catch (e) {}
