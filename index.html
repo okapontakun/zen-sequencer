@@ -1465,8 +1465,8 @@
     } catch (e) { useInterval(); }
   })();
   // 画面を触っていない時間を測る（触ったら、すぐ元のコマ数に戻すため）
-  // 一時停止した時刻と、「ここまでは必ず30コマ」の時刻も持つ（始まりの演出中や、止めた直後にがくっと落ちないように）
-  let lastTouch = performance.now(), pausedAt = 0, noIdleUntil = 0;
+  // 一時停止した時刻と、最初の再生が始まったかも持つ（始まりの演出中や、止めた直後にがくっと落ちないように）
+  let lastTouch = performance.now(), pausedAt = 0, hasPlayed = false;
   for (const ev of ['pointerdown', 'pointermove', 'keydown', 'wheel']) document.addEventListener(ev, () => { lastTouch = performance.now(); }, {capture:true, passive:true});
   function frame(now) {
     // 裏にいる間は Worker 側の時計が演奏を進めるので、こちらは何もしない（二重に進めない）
@@ -1478,8 +1478,9 @@
     for (let i = pending.length - 1; i >= 0; i--) if (clock >= pending[i].at) { const p = pending[i]; pending.splice(i, 1); flash(p.n); }
     acc += dt;
     // 止まっていて、触られても音が鳴ってもいない間は、コマ数を落として電池を守る
-    // 落とすのは、かなり静かになってから（光や波紋が消えきるのを待つ）。始まりの演出中は落とさない。落とし先も15コマで、気づかれにくくする
-    const idle = !playing && now > noIdleUntil && now - lastTouch > 8000 && now - lastSoundAt > 8000 && now - pausedAt > 8000 && !notes.some(n => n.pulse > 0.02 || n.glow > 0.02 || n.pop > 0.02);
+    // 落とすのは、かなり静かになってから（光や波紋が消えきるのを待つ）。タイトルの演出が終わって最初の再生が始まるまでは、
+    // 何秒かかっても落とさない（初めて開いた人の演出が、端末の速さに関係なくなめらかに見えるように）。落とし先も15コマで、気づかれにくくする
+    const idle = !playing && hasPlayed && now - lastTouch > 8000 && now - lastSoundAt > 8000 && now - pausedAt > 8000 && !notes.some(n => n.pulse > 0.02 || n.glow > 0.02 || n.pop > 0.02);
     if (acc + 0.004 >= 1 / (idle ? IDLE_FPS : FPS) && powered) {
       for (const n of notes) {
         n.pulse = Math.max(0, n.pulse - acc * 1.3); n.glow = Math.max(0, n.glow - acc * 0.45); n.ringAge += acc; n.pop = Math.max(0, n.pop - acc * 3);
@@ -1644,6 +1645,7 @@
     // 再開するときは、取り消した予約の分だけ先へ進めて、無音のすき間ができないようにする
     if (on && !playing && schedUntil - playClock > LOOKAHEAD) playClock = schedUntil - LOOKAHEAD;
     playing = on; applyNoise();
+    if (on) hasPlayed = true;
     // 一時停止してもすぐには再生プレーヤーを止めない（10秒たつと休ませる）。すぐ止めると、続けて触ったときに音が遅れるため
     try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = on ? 'playing' : 'paused'; } catch (e) {}
     if (on && outVia === 'player' && outAudio.paused) outAudio.play().catch(() => {});
@@ -1731,7 +1733,6 @@
     if (powered) return;
     ensureAudio();
     powered = true;
-    noIdleUntil = performance.now() + 20000;   // 演出が終わって演奏が始まるまで（約5秒）と、その後しばらくは、コマ数を落とさない
     // 画面の作り直しは、待機中にもう済んでいる（大きさが変わっていたときだけ作り直す）
     relayoutNow();   // 描画は毎コマの処理にまかせる（ここで描くとタップの処理が重くなる）
     stage.classList.add('on', 'intro');
