@@ -333,6 +333,7 @@
 
         <div class="title-card" id="titleCard" hidden><h1>禅シーケンサー</h1><p>水面に音を浮かべて<br>光で鳴らそう</p></div>
         <div class="msg" id="msg" role="status" aria-live="polite" hidden></div>
+        <audio id="outAudio" playsinline hidden></audio>
 
         <div class="dlg-wrap" id="dlg" hidden>
           <div class="dlg" role="alertdialog" aria-modal="true" aria-labelledby="dlgText">
@@ -777,7 +778,7 @@
       // ミュート用の最後のつまみ（ミュート中に作り直したときも無音のまま始める）
       muteGain = ac.createGain(); muteGain.gain.value = muted ? 0 : 1;
       // タイマー用のつまみ：止める時刻にむけて、音の側で時間どおりにしぼる（画面の処理が止められていても効く）
-      timerGain = ac.createGain(); lim.connect(timerGain); timerGain.connect(muteGain); muteGain.connect(ac.destination);
+      timerGain = ac.createGain(); lim.connect(timerGain); timerGain.connect(muteGain); connectOutput(muteGain);
       bus = ac.createGain();
       const dry = ac.createGain(); dry.gain.value = 0.8;
       wet = ac.createGain();
@@ -1565,8 +1566,38 @@
   // ================= はじまり・再生・モード =================
   let powered = false;
   const standby = $('#standby'), titleCard = $('#titleCard'), playBtn = $('#play');
+  // ===== 音を「再生プレーヤー」経由で出す =====
+  // 作った音を、音楽や動画と同じ再生プレーヤー（<audio>）に流し込んで鳴らす。
+  // iPhone が音楽アプリと同じように扱うので、アプリを強制終了したときに「プーン」と鳴らなくなる（iPhone 12 mini で確認済み）。
+  // 再生プレーヤーが使えない・再生を断られたときは、これまでどおり直接スピーカーへ出す
+  const outAudio = $('#outAudio');
+  let outVia = 'direct';
+  function connectOutput(node) {
+    const direct = () => { try { node.disconnect(); } catch (e) {} node.connect(ac.destination); outVia = 'direct'; };
+    if (!ac.createMediaStreamDestination || !outAudio || !window.MediaStream) { direct(); return; }
+    try {
+      const dest = ac.createMediaStreamDestination();
+      node.connect(dest);
+      outAudio.srcObject = dest.stream;
+      outVia = 'player';
+      // 再生プレーヤーの再生は、タップの中で始める必要がある（ensureAudio はタップの中で呼ばれる）
+      const pr = outAudio.play();
+      if (pr && pr.catch) pr.catch(() => { if (outVia === 'player') direct(); });
+    } catch (e) { direct(); }
+  }
+  // ロック画面やコントロールセンターに、曲名と再生／一時停止ボタンを出す
+  if ('mediaSession' in navigator) {
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({title:'禅シーケンサー', artwork:[{src:'icon-512.png', sizes:'512x512', type:'image/png'}]});
+      navigator.mediaSession.setActionHandler('play', () => { ensureAudio(); if (outVia === 'player') outAudio.play().catch(() => {}); setPlaying(true); });
+      navigator.mediaSession.setActionHandler('pause', () => setPlaying(false));
+    } catch (e) {}
+  }
   function setPlaying(on) {
     playing = on; applyNoise();
+    // 一時停止しても再生プレーヤーは止めない（無音を流し続ける）。止めると、次に鳴らすときにタップが必要になるため
+    try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = on ? 'playing' : 'paused'; } catch (e) {}
+    if (on && outVia === 'player' && outAudio.paused) outAudio.play().catch(() => {});
     playBtn.setAttribute('aria-pressed', String(on));
     playBtn.setAttribute('aria-label', on ? '一時停止' : '再生');
     if (on) armTimerFade();   // タイマーで小さくしたままの音量を戻す／止まっていた間のずれを直す
