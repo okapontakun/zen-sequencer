@@ -93,7 +93,7 @@
   .erasing .pix{width:20px;height:20px}
 
   /* 画面下部の操作 */
-  .hud-bot{position:absolute;left:0;right:0;bottom:0;z-index:2;display:flex;flex-direction:column;align-items:center;gap:8px;padding:0 50px 8px;--row-w:min(310px,100%)}
+  .hud-bot{position:absolute;left:0;right:0;bottom:0;z-index:2;display:flex;flex-direction:column;align-items:center;gap:8px;--pad-x:50px;padding:0 var(--pad-x) 8px;--row-w:min(310px,100%)}
   /* 3段（4つのボタン・速さ・操作）は、すべてこの1つの幅（--row-w）でそろえる。左右の端がずれないように。
      左右に50pxずつ余白をとって、窮屈に見えないようにする（広い画面では310pxまで） */
   .tiles{width:var(--row-w);display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
@@ -136,7 +136,9 @@
   .spdrow .pix{width:16px;height:16px}
   .hleds{display:grid;grid-template-columns:repeat(20,minmax(0,1fr));gap:2px;height:20px;padding:2px;background:#05060f;border:2px solid var(--dim);border-radius:3px;touch-action:none;cursor:pointer}
   /* 開いたバーは、下のボタン群のすぐ上に浮かせて出す（水面の大きさは変えないので、玉の位置がずれない） */
-  .spdrow.pop{position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);width:calc(var(--row-w) + 16px);padding:6px;
+  /* 浮かせたバーの幅の100%は、余白を含めた下部全体の幅になる。左右の余白を引いて、下のボタンの列と同じ幅にそろえる
+     （そのままだとスマホではバーだけ横に広がっていた） */
+  .spdrow.pop{position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);width:calc(min(310px, 100% - 2 * var(--pad-x)) + 16px);padding:6px;
     background:var(--win);border:2px solid var(--line);border-radius:6px;box-shadow:0 0 0 3px var(--win),0 6px 16px rgba(0,0,0,.55)}
   .spdrow.pop .ib,.spdrow.pop .hleds{height:32px}
   .spdrow.pop .pix{width:20px;height:20px}
@@ -264,7 +266,7 @@
   @keyframes blink{50%{opacity:0}}
   /* 幅の狭いスマホ（iPhone SE など）では、余白を広くとるとボタンが細くなりすぎるので、余白と右上の名前を控えめにする */
   @media (max-width: 359px){
-    .hud-bot{padding:0 20px 8px}
+    .hud-bot{--pad-x:20px}
     .ttl{font-size:13px;letter-spacing:0}
   }
   @media (prefers-reduced-motion: reduce){
