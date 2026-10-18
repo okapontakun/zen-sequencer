@@ -298,12 +298,6 @@
   .crt:is(.bin,.nobloom) #bloom{display:none}
   /* 計測用：ブラウン管の膜を全部消して、重さを比べる */
   .crt.nocrt :is(.scan,.mask,.vig,.glass,.crtfx,.roll,.noise,.flick){display:none}
-  /* 計測メニュー（?debug のときだけ作られる）。文字だけは操作を邪魔しない */
-  .dbg{position:absolute;left:6px;z-index:30;pointer-events:none;font:10px/1.4 "DotGothic16",monospace;color:#cfe;opacity:.8}
-  .dbg pre{margin:0 0 2px;padding:2px 4px;background:rgba(0,0,0,.55);white-space:pre;pointer-events:none}
-  .dbg .g{display:grid;grid-template-columns:repeat(2,auto);gap:3px;pointer-events:none}
-  .dbg button{pointer-events:auto;min-height:32px;min-width:84px;padding:0 6px;font:inherit;color:#cfe;background:rgba(0,0,0,.6);border:1px solid #6a8;border-radius:4px;touch-action:manipulation}
-  .dbg button.off{color:#f99;border-color:#a66}
   /* 幅の狭いスマホ（iPhone SE など）では、余白を広くとるとボタンが細くなりすぎるので、余白と右上の名前を控えめにする */
   @media (max-width: 359px){
     .hud-bot{--pad-x:20px}
@@ -468,9 +462,12 @@
             </section>
             <section data-panel="view" hidden>
               <h3>玉の色</h3>
-              <p class="w-note">「見分けやすい色」にすると、玉の色を音名に合わせて、Cに近いほど深い青、Bに近いほど明るい黄色で表します。色の見分けがつきにくい方でも、明るさの違いで音名がわかります。音の高さは、玉の大きさで表します。</p>
+              <p class="w-note">「見分けやすい色」にすると、玉の色を音名に合わせて、Cに近いほど深い青、Bに近いほど明るい黄色で表します。</p>
               <div class="pair" id="cvdMode"><button class="wbtn" data-cvd="off">標準</button><button class="wbtn" data-cvd="on">見分けやすい色</button></div>
               <div class="kb cvd-kb" id="cvdScale" aria-hidden="true"></div>
+              <h3>軽量モード</h3>
+              <p class="w-note">「軽量」にすると、動きのなめらかさや画面の細かさを少し控えめにして、電池の減りと発熱を抑えます。音は変わりません。</p>
+              <div class="pair" id="liteMode"><button class="wbtn" data-lite="off">標準</button><button class="wbtn" data-lite="on">軽量</button></div>
             </section>
           </div>
         </div>
@@ -659,7 +656,7 @@
 
   // ================= state =================
   const S = {root:0, scaleKey:'m9', lastKey:'m9', speed:9, vol:8, rev:6, dly:4, q:2, pattern:['R','D','L','U'],
-             voice:'soft', tune:'440', eq:[0,0,0,0,0], tame:5, cvd:false, wn:0, pn:0};
+             voice:'soft', tune:'440', eq:[0,0,0,0,0], tame:5, cvd:false, wn:0, pn:0, lite:false};
   const enabled = new Array(COUNT).fill(false);
   let POOL = [], notes = [], tool = 'draw';
   const mkNote = (x, y, midi, q) => ({x:clamp01(x), y:clamp01(y), midi, q:!!q, pulse:0, glow:0, ringAge:9, pop:0, ph:Math.random() * 6.283, tilt:Math.random() * Math.PI * 0.4, held:false});   // tilt：星の向き（保存・共有はしない）
@@ -693,6 +690,7 @@
     if (Array.isArray(d.eq) && d.eq.length === 5 && d.eq.every(v => intIn(v, -6, 6))) S.eq = d.eq.slice();
     if (intIn(d.tame, 0, 10)) S.tame = d.tame;
     if (typeof d.cvd === 'boolean') S.cvd = d.cvd;
+    if (typeof d.lite === 'boolean') S.lite = d.lite;
     if (typeof d.en === 'string' && /^[01]{36}$/.test(d.en) && d.en.includes('1')) { for (let i = 0; i < COUNT; i++) enabled[i] = d.en[i] === '1'; }
     else fillFromScale();
     if (Array.isArray(d.notes)) {
@@ -705,7 +703,7 @@
   for (const n of notes) if (!enabled[n.midi - LOW]) n.midi = randPitch();
   let saveTimer = 0;
   const snapshot = () => ({root:S.root, scaleKey:S.scaleKey, lastKey:S.lastKey, speed2:S.speed, vol:S.vol, wn:S.wn, pn:S.pn, rev:S.rev, dly:S.dly, q:S.q, pattern:S.pattern,
-    voice:S.voice, tune:S.tune, eq:S.eq, tame:S.tame, cvd:S.cvd, en:enabled.map(v => v ? '1' : '0').join(''),
+    voice:S.voice, tune:S.tune, eq:S.eq, tame:S.tame, cvd:S.cvd, lite:S.lite, en:enabled.map(v => v ? '1' : '0').join(''),
     notes:notes.map(n => [+n.x.toFixed(4), +n.y.toFixed(4), n.midi, n.q ? 1 : 0])});
   function saveSoon() { clearTimeout(saveTimer); saveTimer = setTimeout(() => writeSaved(snapshot()), 300); }
   // iOSでは pagehide が来ないままタブが破棄されることがあるので、裏に回った時点でも保存する
@@ -946,8 +944,9 @@
     if (!ac || !wnGain) return;
     if (noiseEnsure) noiseEnsure();
     const t = ac.currentTime, on = playing ? 1 : 0;
-    wnGain.gain.setTargetAtTime(Math.pow(S.wn / 10, 2) * 0.39 * on, t, 0.15);
-    pnGain.gain.setTargetAtTime(Math.pow(S.pn / 10, 2) * 0.5 * on, t, 0.15);
+    // いちばん上の目盛りで、以前の7目盛り目の大きさになるようにする（以前は大きすぎたため。(7/10)^2 = 0.49倍）
+    wnGain.gain.setTargetAtTime(Math.pow(S.wn / 10, 2) * 0.39 * 0.49 * on, t, 0.15);
+    pnGain.gain.setTargetAtTime(Math.pow(S.pn / 10, 2) * 0.5 * 0.49 * on, t, 0.15);
   }
   function applyReverb() {
     if (!ac) return;
@@ -1102,15 +1101,12 @@
   let SW = 4, SH = 4, wave = new Float32Array(16), wavePrev = new Float32Array(16), wimg = null, bottom = null, sky = null;
   let swX = new Float32Array(4), swY = new Float32Array(4);
   let CW = 300, CH = 600, DPR = 1;
-  // ---- 負荷対策のスイッチ（ふだんは全部ON。?debug のときだけ、画面の計測メニューから切り替えられる） ----
-  const DBG = /[?&]debug\b/.test(location.search);
-  const OPT_DEF = {crt:1, dpr:1, spr:1, bloom:1, idle:1, nocrt:0, fx:1, bin:1, nobloom:0, b4:1, lite:1, wb:1};
-  const OPT = {...OPT_DEF};   // 古い保存値にないキーは、ここの初期値のまま残る
-  const OPT_KEY = 'zen-debug-opt';
-  if (DBG) { try { Object.assign(OPT, JSON.parse(localStorage.getItem(OPT_KEY) || '{}')); } catch (e) {} }
+  // ---- 負荷対策のスイッチ（実機で1つずつ効き目を確かめたうえで、すべてONに決めたもの） ----
+  const OPT = {crt:1, dpr:1, spr:1, bloom:1, idle:1, nocrt:0, fx:1, bin:1, nobloom:0, b4:1, lite:1, wb:1};
   // スマホ（指で触る端末）は画素数を抑える：2倍→1.5倍で、描く点が約44%減るが、見た目の差はほとんどない
   const coarse = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
-  const dprNow = () => Math.min(window.devicePixelRatio || 1, OPT.dpr && coarse ? 1.5 : 2);
+  // 軽量モードでは、さらに一段控えめにする（スマホ1.25倍・パソコン1.5倍）。玉や光はもともとぼんやりした表現なので、差は小さい
+  const dprNow = () => Math.min(window.devicePixelRatio || 1, OPT.dpr && coarse ? (S.lite ? 1.25 : 1.5) : (S.lite ? 1.5 : 2));
   const F ={x0:0, y0:0, w:1, h:1};
   const LX = 0.6, LY = -0.8;
   const TONE = new Uint8ClampedArray(1024);
@@ -1476,7 +1472,7 @@
       const rr = R * (1 + k * 0.12) * grow;
       ctx.strokeStyle = `hsla(${hue},85%,72%,${0.2 * e})`; ctx.lineWidth = 5;
       shape(rr); ctx.stroke();
-      ctx.strokeStyle = `hsla(${hue},90%,86%,${0.5 * e})`; ctx.lineWidth = 1.6;   // 細い輪郭は少し控えめに
+      ctx.strokeStyle = `hsla(${hue},88%,80%,${0.42 * e})`; ctx.lineWidth = 1.6;   // 細い輪郭は控えめに（白く光りすぎるとパリッと硬く見えるので、色を残してほんの少し弱める）
       shape(rr); ctx.stroke();
     }
     // 玉の中の明るさは、輪郭より長くゆっくり引いていく
@@ -1603,7 +1599,7 @@
     // ブルームは1/6の大きさのぼんやりした光なので、2コマに1回（ブルーム4コマ毎がONなら4回に1回）の更新でも見分けがつかない（毎コマ縮小コピーする分の負荷が減る）
     // 縮小コピーは、ブルームを重ねる「前」の絵から取る（重ねたあとから取ると、光が自分に戻って積もっていく）
     // 水面でブルームを混ぜるときは、池の絵にブルームが入ってしまうので、池の絵を読まない「光だけ」の作り方に必ず切り替える（光だけの絵なら、もとに戻らない）
-    if (!OPT.nobloom && (bloomDue || (OPT.b4 ? (bloomTick = (bloomTick + 1) & 3) === 0 : !OPT.bloom || (bloomTick ^= 1)))) {
+    if (!OPT.nobloom && (bloomDue || (OPT.b4 ? (bloomTick = (bloomTick + 1) & (S.lite ? 7 : 3)) === 0 : !OPT.bloom || (bloomTick ^= 1)))) {
       bloomDue = false;
       if (OPT.lite || OPT.wb) drawBloomSrc(t);
       else { bctx.imageSmoothingEnabled = true; bctx.clearRect(0, 0, bloomCv.width, bloomCv.height); bctx.drawImage(cv, 0, 0, bloomCv.width, bloomCv.height); }
@@ -1619,7 +1615,10 @@
 
   // ================= loop（毎秒30コマ） =================
   const fading = [];
-  const FPS = 30, IDLE_FPS = 15;
+  const FPS = 30, IDLE_FPS = 15;   // FPS は水の動きの基準（1回の計算＝30分の1秒ぶん）
+  // 描くコマ数。軽量モードでは、再生中20コマ・止まっているとき10コマにする（画面は毎秒60回なので、その3回・6回に1回）
+  const runFps = () => S.lite ? 20 : FPS, idleFps = () => S.lite ? 10 : IDLE_FPS;
+  let waterAcc = 0;   // 水の計算の端数（コマ数が30でなくても、水の動く速さを同じに保つため）
   let last = performance.now(), acc = 1, nextDrop = 2;
   // パソコンで別のタブに移っても流し続けるための時計。画面の描画（requestAnimationFrame）は裏のタブでは止まるので、
   // 裏にいる間だけ、間引かれにくい Worker のタイマーで演奏を進める（Worker が使えなければ通常のタイマー）
@@ -1670,8 +1669,7 @@
     // 何秒かかっても落とさない（初めて開いた人の演出が、端末の速さに関係なくなめらかに見えるように）。落とし先も15コマで、気づかれにくくする
     const idle = !playing && hasPlayed && now - lastTouch > 8000 && now - lastSoundAt > 8000 && now - pausedAt > 8000 && !notes.some(n => n.pulse > 0.02 || n.glow > 0.02 || n.pop > 0.02);
     isIdle = idle; setStill(idle);   // 止まっている間は、ブラウン管の膜のアニメも止める（触ったらこの次のコマで再開）
-    if (acc + 0.004 >= 1 / (idle && OPT.idle ? IDLE_FPS : FPS) && powered) {
-      const t0 = DBG ? performance.now() : 0;
+    if (acc + 0.004 >= 1 / (idle && OPT.idle ? idleFps() : runFps()) && powered) {
       for (const n of notes) {
         n.pulse = Math.max(0, n.pulse - acc * 1.3); n.glow = Math.max(0, n.glow - acc * 0.45); n.ringAge += acc; n.pop = Math.max(0, n.pop - acc * 3);
         if (!CALM && !reduceMotion && Math.random() < 0.015 * Math.max(1, acc * FPS)) disturb(ox(n), oy(n), radiusOf(n) + 3, 0.25);
@@ -1681,63 +1679,28 @@
         nextDrop = clock + 0.9 + Math.random() * 2.4;
       }
       // 水の動きは1コマが30分の1秒ぶん。コマ数が落ちているときは、経った時間に合わせて回数を増やす（速さが変わらないように）
-      for (let i = Math.min(4, acc > 1.6 / FPS ? Math.round(acc * FPS) : 1); i > 0; i--) stepWater();
+      waterAcc = Math.min(4, waterAcc + acc * FPS);
+      for (let i = Math.max(1, Math.floor(waterAcc)); i > 0; i--) stepWater();
+      waterAcc = Math.max(0, waterAcc - Math.max(1, Math.floor(waterAcc)));
       acc = 0; render();
-      if (DBG) { dbgMs += performance.now() - t0; dbgN++; }
     }
     requestAnimationFrame(frame);
   }
   // ブラウン管の膜のアニメを止める／動かす（クラスが変わるときだけ触る）
   let isIdle = false, stillOn = false;
   function setStill(on) {
-    on = !!(on && OPT.crt);
+    on = !!((on || S.lite) && OPT.crt);   // 軽量モードでは、ずっと止めておく
     if (on !== stillOn) { stillOn = on; crt.classList.toggle('still', on); }
   }
   document.addEventListener('visibilitychange', () => { if (document.hidden) setStill(true); });
 
-  // ================= 計測メニュー（?debug のときだけ） =================
-  // 負荷対策を1つずつ切って、実機で重さの差を見るための小さな表示。ふだんの画面には出ない
-  let dbgMs = 0, dbgN = 0;
+  // 負荷対策のスイッチに合わせて、ブラウン管の膜やブルームの見せ方を決める
   function applyOpt() {
     crt.classList.toggle('cheap', !!OPT.crt); crt.classList.toggle('nocrt', !!OPT.nocrt);
     crt.classList.toggle('fxm', !!OPT.fx); crt.classList.toggle('bin', !!(OPT.bin || OPT.wb)); crt.classList.toggle('nobloom', !!OPT.nobloom);
-    stillOn = !stillOn; setStill(isIdle);   // 状態を確かめ直して反映する
+    stillOn = null; setStill(isIdle);   // 状態を確かめ直して反映する
   }
   applyOpt();
-  if (DBG) {
-    const box = document.createElement('div'); box.className = 'dbg';
-    const info = document.createElement('pre'), grid = document.createElement('div'); grid.className = 'g';
-    box.append(info, grid); crt.appendChild(box);
-    window.zenDbg = {OPT, render, cv, bloomCv, waterCv, get notes() { return notes; }, get bloomDue() { return bloomDue; }, set bloomDue(v) { bloomDue = v; }};   // 同じ瞬間にON/OFFで描いて見比べるための取っ手
-    const BTN = [['crt', '1 CRT止め/軽'], ['dpr', '2 解像度1.5'], ['spr', '3 玉スプライト'], ['bloom', '4 ブルーム間引'], ['idle', '5 待機15fps'], ['fx', '6 飾りまとめ'], ['bin', '7 ブルーム内蔵'], ['b4', '8 ブルーム4コマ毎'], ['lite', '9 ブルーム光だけ'], ['wb', '10 ブルーム水面で'], ['nocrt', '膜ぜんぶ消す'], ['nobloom', 'ブルーム消す']];
-    const save = () => { try { localStorage.setItem(OPT_KEY, JSON.stringify(OPT)); } catch (e) {} };
-    // 最適化は ON が通常。「膜ぜんぶ消す」「ブルーム消す」だけは、押して消している間が ON（赤くなる）
-    const paint = () => { for (const b of grid.children) if (b.dataset.k) { const on = !!OPT[b.dataset.k], off = b.dataset.k === 'nocrt' || b.dataset.k === 'nobloom' ? on : !on; b.classList.toggle('off', off); b.textContent = b.dataset.t + (on ? ' ON' : ' OFF'); } };
-    const apply = k => {
-      if (k === 'dpr') { laidDpr = 0; relayoutNow(); }   // 解像度は作り直しが要る
-      if (k === 'spr') clearSprites();
-      bloomDue = true;   // ブルームの出し方が変わったかもしれないので、縮小コピーを取り直す
-      applyOpt(); paint(); save();
-    };
-    for (const [k, label] of BTN) {
-      const b = document.createElement('button'); b.dataset.k = k; b.dataset.t = label;
-      b.onclick = () => { OPT[k] = OPT[k] ? 0 : 1; apply(k); };
-      grid.appendChild(b);
-    }
-    const rs = document.createElement('button'); rs.textContent = 'reset';
-    rs.onclick = () => { Object.assign(OPT, OPT_DEF); bloomDue = true; try { localStorage.removeItem(OPT_KEY); } catch (e) {} laidDpr = 0; relayoutNow(); clearSprites(); applyOpt(); paint(); };
-    const hd = document.createElement('button'); hd.textContent = 'hide';   // メニューをたたむ（数字だけ残る）
-    hd.onclick = () => { for (const b of grid.children) if (b !== hd) b.hidden = !b.hidden; hd.textContent = hd.textContent === 'hide' ? 'show' : 'hide'; };
-    grid.append(rs, hd);
-    paint();
-    let t0 = performance.now();
-    setInterval(() => {
-      const now = performance.now(), fps = dbgN / ((now - t0) / 1000), ms = dbgN ? dbgMs / dbgN : 0;
-      dbgMs = 0; dbgN = 0; t0 = now;
-      box.style.top = (hudTop.offsetHeight + 2) + 'px';
-      info.textContent = `${fps.toFixed(1)}fps ${ms.toFixed(2)}ms ${isIdle ? 'idle' : playing ? 'play' : 'stop'}\norb ${notes.length} dpr ${DPR} spr ${sprites.size}`;
-    }, 1000);
-  }
 
   // ================= pointer =================
   const MOVE_PX = 8, TAP_MS = 500;
@@ -2435,7 +2398,16 @@
     $('#cvdScale').innerHTML = WHITE.map(pc => `<div class="key w" style="background:${col(pc)}">${NAMES[pc]}</div>`).join('') +
       BLACK_POS.map(([pc, pos]) => `<div class="key b" style="background:${col(pc)};left:calc(${pos} * 100% / 7 - 5.5%)"></div>`).join('');
   }
+  // 軽量モード：画面の細かさを変えるので作り直す。ブルームとブラウン管の膜の動きも、すぐに反映する
+  const liteEl = $('#liteMode');
+  liteEl.addEventListener('click', e => {
+    const b = e.target.closest('[data-lite]'); if (!b) return;
+    const on = b.dataset.lite === 'on'; if (on === S.lite) return;
+    S.lite = on; renderToggles(); saveSoon(); haptic(4);
+    bloomDue = true; laidDpr = 0; relayoutNow(); stillOn = null; setStill(isIdle);
+  });
   function renderToggles() {
+    $$('[data-lite]', liteEl).forEach(b => b.setAttribute('aria-pressed', String((b.dataset.lite === 'on') === S.lite)));
     $$('[data-cvd]', cvdEl).forEach(b => b.setAttribute('aria-pressed', String((b.dataset.cvd === 'on') === S.cvd)));
     renderCvdScale();
     $$('[data-v]', voiceEl).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === S.voice)));
