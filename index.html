@@ -687,6 +687,14 @@
     g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.setTargetAtTime(0, t, 0.008); g.setValueAtTime(0, t + 0.04); faded = true;
     if (then) setTimeout(then, 70);
   }
+  // タスクキルなどでアプリが急に終わると、最後の音が繰り返されて「プーン」と鳴ることがある。
+  // 終わる合図そのものは届かないが、その手前で届くことがある「閉じる」「凍結される」の合図では、すぐに音をしぼっておく。
+  // 裏に回っただけ（ホームに戻る・画面を消す）ではこの合図は来ないので、裏での再生はそのまま続く
+  for (const [target, ev] of [[window, 'pagehide'], [window, 'beforeunload'], [document, 'freeze']]) target.addEventListener(ev, () => fadeOutAudio());
+  // 閉じずに戻ってきた（ページがそのまま復元された・凍結がとけた）ときは、しぼった音量を元に戻す
+  const unfade = () => { if (faded && ac) { faded = false; applyReverb(); } };
+  window.addEventListener('pageshow', e => { if (e.persisted) unfade(); });
+  document.addEventListener('resume', unfade);
 
   // ================= audio =================
   let ac = null, bus, wet, fb, dsend, volGain, muteGain, eqNodes = [], muted = false;
