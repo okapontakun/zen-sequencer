@@ -105,8 +105,9 @@
   /* 左の4つ（ペン・消しゴム・サイコロ・ゴミ箱）と再生ボタンを、同じ大きさ（半分ずつ）で並べる。全体の幅は上の段と同じ */
   .ctrl{width:var(--row-w);display:grid;grid-template-columns:1fr 1fr 40px;align-items:center;gap:10px}
   /* 右下の速さボタン：押すと、速さのバーが上に開く */
-  #spdBtn{height:66px}
-  #spdBtn .pix{width:20px;height:20px}
+  /* 右下の細い列：上がうさぎ（速さ）、下が時計（タイマー）。半分ずつの高さで並べる */
+  .side{height:66px;display:grid;grid-template-rows:1fr 1fr;gap:6px}
+  .side .pix{width:18px;height:18px}
   .pad{height:66px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:30px 30px;gap:6px}
   .pad .pix{width:20px;height:20px}
   /* おく／けすは、どちらか一方だけが選ばれるスライドスイッチ */
@@ -118,8 +119,8 @@
   .seg button{position:relative;z-index:1;display:grid;place-items:center;color:var(--dim)}
   .seg button[aria-checked="true"]{color:var(--ink);--hi:#fffdf4}
   .seg button:active{transform:translateY(2px)}
-  .play{width:100%;height:66px;display:grid;place-items:center;background:var(--amber);color:#3a1d00;border:3px solid var(--amber-hi);border-radius:6px;
-    box-shadow:0 0 16px rgba(255,184,77,.45);transition:transform .05s}
+  /* 再生／一時停止ボタンは、ずっと黄色だと目立ちすぎるので、ほかのボタンと同じ色にする */
+  .play{width:100%;height:66px;display:grid;place-items:center;background:var(--win);color:var(--text);border:3px solid var(--dim);border-radius:6px;transition:transform .05s}
   .play:active{transform:translateY(2px)}
   .play .pix{width:36px;height:36px}
   .transport{display:flex}
@@ -155,6 +156,12 @@
   .dlg .pix{width:36px;height:36px;color:var(--sel)}
   .dlg p{margin:0;font-family:var(--font-read);font-size:20px;line-height:1.7;white-space:pre-line}
   .pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}
+  /* タイマーの画面：時間・分・秒をプルダウンで選ぶ。動いている間は残り時間を大きく出す */
+  .tmr-set{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;width:100%}
+  .tmr-set label{display:flex;flex-direction:column;gap:4px;font-size:16px;color:var(--dim)}
+  .tmr .sel{padding:0 22px 0 8px;background-position:right 6px center;background-size:12px 8px;text-align:center}
+  .dlg p.tmr-left{margin:0;font-family:var(--font-dot);font-size:40px;letter-spacing:.06em;color:var(--sel);font-variant-numeric:tabular-nums}
+
   .wbtn{min-height:46px;border:3px solid var(--line);border-radius:4px;font-size:20px;padding:0 8px}
   .wbtn[aria-pressed="true"]{background:var(--line);color:var(--win)}
   .wbtn.yes{background:var(--sel);color:var(--ink);border-color:#fff3c4}
@@ -317,7 +324,10 @@
                 <span class="i-play" data-icon="play"></span><span class="i-pause" data-icon="pause"></span>
               </button>
             </div>
-            <button class="ib" id="spdBtn" data-icon="rabbit" aria-pressed="false" aria-controls="spdPop" aria-label="速さを変える"></button>
+            <div class="side">
+              <button class="ib" id="spdBtn" data-icon="rabbit" aria-pressed="false" aria-controls="spdPop" aria-label="速さを変える"></button>
+              <button class="ib" id="clockBtn" data-icon="clock" aria-pressed="false" aria-label="タイマー"></button>
+            </div>
           </div>
         </div>
 
@@ -329,6 +339,18 @@
             <span id="dlgIcon"></span>
             <p id="dlgText"></p>
             <div class="pair"><button class="wbtn" id="dlgNo">いいえ</button><button class="wbtn yes" id="dlgYes">はい</button></div>
+          </div>
+        </div>
+
+        <div class="dlg-wrap" id="timerDlg" hidden>
+          <div class="dlg tmr" role="dialog" aria-modal="true" aria-label="タイマー">
+            <div class="tmr-set" id="tmrSet">
+              <label><select class="sel" id="tmrH" aria-label="時間"></select>時間</label>
+              <label><select class="sel" id="tmrM" aria-label="分"></select>分</label>
+              <label><select class="sel" id="tmrS" aria-label="秒"></select>秒</label>
+            </div>
+            <p class="tmr-left" id="tmrLeft" hidden></p>
+            <div class="pair"><button class="wbtn" id="tmrClose">閉じる</button><button class="wbtn yes" id="tmrGo">スタート</button></div>
           </div>
         </div>
 
@@ -462,6 +484,7 @@
     help:['...######...','..##....##..','..##....##..','........##..','.......##...','......##....','.....##.....','.....##.....','............','.....##.....','.....##.....','............'],
     arrow:['............','............','......#.....','......##....','......###...','.#########..','.##########.','.#########..','......###...','......##....','......#.....','............'],
     close:['............','.##......##.','.###....###.','..###..###..','...######...','....####....','....####....','...######...','..###..###..','.###....###.','.##......##.','............'],
+    clock:['...######...','.##......##.','.#...##...#.','#....##....#','#....##....#','#....#####.#','#....#####.#','#..........#','#..........#','.#........#.','.##......##.','...######...'],
     turtle:['............','............','............','...####.....','..######....','.########.++','.########+++','.#########..','..#.#..#.#..','............','............','............'],
     minus:['............','............','............','............','............','.##########.','.##########.','............','............','............','............','............'],
     speaker:['............','.....#......','....##...#..','...###....#.','#####..#..#.','#####...#.#.','#####...#.#.','#####..#..#.','...###....#.','....##...#..','.....#......','............'],
@@ -744,7 +767,9 @@
       for (let i = 0; i < eqNodes.length - 1; i++) eqNodes[i].connect(eqNodes[i + 1]);
       eqNodes[eqNodes.length - 1].connect(volGain); volGain.connect(lim);
       // ミュート用の最後のつまみ（ミュート中に作り直したときも無音のまま始める）
-      muteGain = ac.createGain(); muteGain.gain.value = muted ? 0 : 1; lim.connect(muteGain); muteGain.connect(ac.destination);
+      muteGain = ac.createGain(); muteGain.gain.value = muted ? 0 : 1;
+      // タイマー用のつまみ：止める時刻にむけて、音の側で時間どおりにしぼる（画面の処理が止められていても効く）
+      timerGain = ac.createGain(); lim.connect(timerGain); timerGain.connect(muteGain); muteGain.connect(ac.destination);
       bus = ac.createGain();
       const dry = ac.createGain(); dry.gain.value = 0.8;
       wet = ac.createGain();
@@ -767,7 +792,7 @@
       bus.connect(dry); dry.connect(hp); bus.connect(conv); conv.connect(wlp); wlp.connect(whp); whp.connect(wet); wet.connect(hp);
       bus.connect(dsend); dsend.connect(delay); delay.connect(dlp); dlp.connect(fb); fb.connect(delay);
       dlp.connect(dret); dret.connect(hp); dlp.connect(d2rev); d2rev.connect(conv);
-      faded = false; applyReverb();
+      faded = false; applyReverb(); armTimerFade();
     }
     if (ac.state !== 'running') {
       resumeAt = performance.now(); unlockTick(); ac.resume().catch(() => {});
@@ -892,6 +917,7 @@
     const chip = S.voice === 'chip';
     const f = A4() * Math.pow(2, (midi - 69) / 12) * (chip ? 2 : 1);
     if (!Number.isFinite(f) || !Number.isFinite(t)) return;
+    if (timerEnd && Date.now() + delaySec * 1000 >= timerEnd) return;
     lastSoundAt = performance.now();
     for (let i = voices.length - 1; i >= 0; i--) if (voices[i].end < ac.currentTime) voices.splice(i, 1);
     while (voices.length >= MAX_VOICES) {
@@ -1392,6 +1418,7 @@
     if (!document.hidden || !powered) { lastBg = now; return; }
     const dt = Math.min((now - lastBg) / 1000, 2); lastBg = now;
     clock += dt;
+    timerTick();
     if (playing) schedule(dt);
   }
   (() => {
@@ -1408,6 +1435,7 @@
     if (document.hidden) { last = now; requestAnimationFrame(frame); return; }
     const dt = Math.min((now - last) / 1000, 0.1); last = now;
     clock += dt;
+    timerTick();
     if (playing) schedule(dt);
     for (let i = pending.length - 1; i >= 0; i--) if (clock >= pending[i].at) { const p = pending[i]; pending.splice(i, 1); flash(p.n); }
     acc += dt;
@@ -1529,18 +1557,11 @@
   // ================= はじまり・再生・モード =================
   let powered = false;
   const standby = $('#standby'), titleCard = $('#titleCard'), playBtn = $('#play');
-  let wakeLock = null;
-  async function keepAwake(on) {
-    try {
-      if (on && 'wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); }
-      else if (!on && wakeLock) { await wakeLock.release(); wakeLock = null; }
-    } catch (e) { wakeLock = null; }
-  }
   function setPlaying(on) {
     playing = on; applyNoise();
     playBtn.setAttribute('aria-pressed', String(on));
     playBtn.setAttribute('aria-label', on ? '一時停止' : '再生');
-    keepAwake(on);
+    if (on) armTimerFade();   // タイマーで小さくしたままの音量を戻す／止まっていた間のずれを直す
   }
   // はじまりの演出：タップしたところに「タン」と波紋が生まれ、少しおいてまんなかへ一滴落ちて（音階をさらっと流す）、
   // その一滴のところから暗がりが晴れて、水面が浮かび上がってくる
@@ -1811,6 +1832,7 @@
     [`<span class="icons"><img class="orb-img" src="${starImage(45)}" alt=""></span>`, '星の玉は、鳴るたびに音が変わります。出やすさは設定の音階タブで変えられます。'],
     [ic('play', 'pause'), '光が水を渡り、通った玉の音が鳴ります。もう一度押すと、一時停止します。'],
     [ic('arrow'), '光が進む方向です。タップすると右、下、左、上、？の順番で変わります。'],
+    [ic('clock'), '時計ボタンで、タイマーをセットできます。時間がたつと、音をゆっくり小さくしてから一時停止します。タイマーが動いている間は、時計ボタンが黄色になります。'],
     [ic('rabbit'), '右下のうさぎボタンで、速さのバーが開きます。かめ・うさぎのボタンか、ゲージをタップしたりなぞったりして、光が渡る速さを変えられます。'],
     [ic('pencil', 'eraser'), '鉛筆は置くモード、消しゴムは消すモードです。'],
     [ic('dice', 'trash'), 'サイコロボタンで、玉の音を一気に変えることができます。ゴミ箱ボタンで玉を一気に消すことができます。'],
@@ -1819,6 +1841,63 @@
     [ic('share'), '共有ボタンで、作った玉の配置と設定をほかの人に渡したり、受け取ったものを読み込んだりできます。']
   ].map(([i, t]) => `<li>${i}<span>${t.replace(/。(?=.)/g, '。<br>')}</span></li>`).join('');   // 句点ごとに改行
   $('#helpBtn').addEventListener('click', () => { if (!powered) return; settingsWin.hidden = true; shareWin.hidden = true; helpWin.hidden = false; haptic(5); });
+
+  // ================= タイマー =================
+  // 時間をセットすると、その時間がたったときに一時停止する。最後の10秒は音をゆっくり小さくする。
+  // 止める時刻は「時計の時刻」で覚え、音量をしぼる予約は音の側にしておく。
+  // スマホで裏に回ったり画面が消えたりして画面の処理が止められても、音は時間どおりに消え、戻ったときに一時停止の表示になる
+  const TIMER_FADE = 10;
+  let timerEnd = 0, timerGain = null, tmrView = 0, tmrLast = 30 * 60;
+  const timerDlg = $('#timerDlg'), clockBtn = $('#clockBtn'), tmrH = $('#tmrH'), tmrM = $('#tmrM'), tmrS = $('#tmrS');
+  const opts = n => Array.from({length:n}, (_, i) => `<option value="${i}">${i}</option>`).join('');
+  tmrH.innerHTML = opts(24); tmrM.innerHTML = opts(60); tmrS.innerHTML = opts(60);
+  // 音量をしぼる予約を、いまの残り時間に合わせてやり直す（タイマーがなければ元の音量に戻す）
+  function armTimerFade() {
+    if (!ac || !timerGain) return;
+    const g = timerGain.gain, t = ac.currentTime;
+    g.cancelScheduledValues(t); g.setValueAtTime(g.value, t);
+    if (!timerEnd) { g.linearRampToValueAtTime(1, t + 0.05); return; }
+    const left = (timerEnd - Date.now()) / 1000;
+    if (left > TIMER_FADE) { g.linearRampToValueAtTime(1, t + 0.05); g.setValueAtTime(1, t + left - TIMER_FADE); }
+    g.linearRampToValueAtTime(0, t + Math.max(0.05, left));
+  }
+  const fmt = sec => { sec = Math.max(0, Math.ceil(sec)); const h = Math.floor(sec / 3600), m = Math.floor(sec / 60) % 60, x = sec % 60; return `${h}:${String(m).padStart(2, '0')}:${String(x).padStart(2, '0')}`; };
+  function renderTimer() {
+    const on = !!timerEnd;
+    clockBtn.setAttribute('aria-pressed', String(on));
+    clockBtn.setAttribute('aria-label', on ? 'タイマー（動いています）' : 'タイマー');
+    $('#tmrSet').hidden = on; $('#tmrLeft').hidden = !on;
+    $('#tmrGo').textContent = on ? '止める' : 'スタート';
+    if (on) $('#tmrLeft').textContent = fmt((timerEnd - Date.now()) / 1000);
+  }
+  function timerTick() {
+    if (!timerEnd || Date.now() < timerEnd) return;
+    timerEnd = 0;
+    if (playing) setPlaying(false);
+    renderTimer();
+    // 音はもう消えている。残響の鳴り残りが落ち着いてから、次の再生のために音量を元に戻す（その前に再生されたら、そこで戻る）
+    setTimeout(() => { if (!timerEnd && !playing) armTimerFade(); }, 4000);
+  }
+  function openTimer() {
+    if (!powered) return;
+    const sec = timerEnd ? 0 : tmrLast;
+    if (!timerEnd) { tmrH.value = String(Math.floor(sec / 3600)); tmrM.value = String(Math.floor(sec / 60) % 60); tmrS.value = String(sec % 60); }
+    renderTimer(); timerDlg.hidden = false; haptic(5);
+    clearInterval(tmrView); tmrView = setInterval(renderTimer, 250);
+  }
+  function closeTimer() { timerDlg.hidden = true; clearInterval(tmrView); }
+  clockBtn.addEventListener('click', openTimer);
+  $('#tmrClose').addEventListener('click', closeTimer);
+  timerDlg.addEventListener('click', e => { if (e.target === timerDlg) closeTimer(); });   // まわりの暗いところを押しても閉じる
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !timerDlg.hidden) closeTimer(); });
+  $('#tmrGo').addEventListener('click', () => {
+    if (timerEnd) { timerEnd = 0; armTimerFade(); renderTimer(); haptic(6); return; }
+    const sec = +tmrH.value * 3600 + +tmrM.value * 60 + +tmrS.value;
+    if (!sec) { say('時間を選んでください'); return; }
+    tmrLast = sec; timerEnd = Date.now() + sec * 1000;
+    ensureAudio(); armTimerFade(); renderTimer(); haptic(8);
+    closeTimer();
+  });
 
   // ================= せってい =================
   const settingsWin = $('#settings'), setBody = $('#setBody'), shareWin = $('#share');
@@ -2125,7 +2204,6 @@
     lastBg = performance.now();
     // 裏に回っても音は消さない（スマホでもパソコンでも流し続ける）。音を消すのはスピーカーボタンだけ
     if (document.hidden) { saveNow(); pointers.clear(); for (const n of notes) n.held = false; return; }
-    if (playing) keepAwake(true);
   });
   // iPhoneのSafariは pointerdown では音の再開を認めないことがあるので、touchend と click でも再開を試みる
   for (const ev of ['touchend', 'click']) document.addEventListener(ev, () => { if (powered && !muted && ac && ac.state !== 'running' && !document.hidden) ensureAudio(); }, {capture:true, passive:true});
