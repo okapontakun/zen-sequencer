@@ -1431,7 +1431,7 @@
 
   // ================= loop（毎秒30コマ） =================
   const fading = [];
-  const FPS = 30, IDLE_FPS = 10;
+  const FPS = 30, IDLE_FPS = 15;
   let last = performance.now(), acc = 1, nextDrop = 2;
   // パソコンで別のタブに移っても流し続けるための時計。画面の描画（requestAnimationFrame）は裏のタブでは止まるので、
   // 裏にいる間だけ、間引かれにくい Worker のタイマーで演奏を進める（Worker が使えなければ通常のタイマー）
@@ -1465,7 +1465,8 @@
     } catch (e) { useInterval(); }
   })();
   // 画面を触っていない時間を測る（触ったら、すぐ元のコマ数に戻すため）
-  let lastTouch = performance.now();
+  // 一時停止した時刻と、「ここまでは必ず30コマ」の時刻も持つ（始まりの演出中や、止めた直後にがくっと落ちないように）
+  let lastTouch = performance.now(), pausedAt = 0, noIdleUntil = 0;
   for (const ev of ['pointerdown', 'pointermove', 'keydown', 'wheel']) document.addEventListener(ev, () => { lastTouch = performance.now(); }, {capture:true, passive:true});
   function frame(now) {
     // 裏にいる間は Worker 側の時計が演奏を進めるので、こちらは何もしない（二重に進めない）
@@ -1477,7 +1478,8 @@
     for (let i = pending.length - 1; i >= 0; i--) if (clock >= pending[i].at) { const p = pending[i]; pending.splice(i, 1); flash(p.n); }
     acc += dt;
     // 止まっていて、触られても音が鳴ってもいない間は、コマ数を落として電池を守る
-    const idle = !playing && now - lastTouch > 3000 && now - lastSoundAt > 3000;
+    // 落とすのは、かなり静かになってから（光や波紋が消えきるのを待つ）。始まりの演出中は落とさない。落とし先も15コマで、気づかれにくくする
+    const idle = !playing && now > noIdleUntil && now - lastTouch > 8000 && now - lastSoundAt > 8000 && now - pausedAt > 8000 && !notes.some(n => n.pulse > 0.02 || n.glow > 0.02 || n.pop > 0.02);
     if (acc + 0.004 >= 1 / (idle ? IDLE_FPS : FPS) && powered) {
       for (const n of notes) {
         n.pulse = Math.max(0, n.pulse - acc * 1.3); n.glow = Math.max(0, n.glow - acc * 0.45); n.ringAge += acc; n.pop = Math.max(0, n.pop - acc * 3);
@@ -1638,7 +1640,7 @@
     pending.length = 0;   // 取り消した音の光らせる予定も消す
   }
   function setPlaying(on) {
-    if (!on && playing) cancelPendingNotes();
+    if (!on && playing) { cancelPendingNotes(); pausedAt = performance.now(); }
     // 再開するときは、取り消した予約の分だけ先へ進めて、無音のすき間ができないようにする
     if (on && !playing && schedUntil - playClock > LOOKAHEAD) playClock = schedUntil - LOOKAHEAD;
     playing = on; applyNoise();
@@ -1729,6 +1731,7 @@
     if (powered) return;
     ensureAudio();
     powered = true;
+    noIdleUntil = performance.now() + 20000;   // 演出が終わって演奏が始まるまで（約5秒）と、その後しばらくは、コマ数を落とさない
     // 画面の作り直しは、待機中にもう済んでいる（大きさが変わっていたときだけ作り直す）
     relayoutNow();   // 描画は毎コマの処理にまかせる（ここで描くとタップの処理が重くなる）
     stage.classList.add('on', 'intro');
