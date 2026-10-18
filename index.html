@@ -276,8 +276,28 @@
   .crt.still .roll,.crt.still .noise,.crt.still .flick{animation-play-state:paused}
   /* ざらつきの膜は動く幅が最大43pxなので、画面の2倍の大きさにしなくても同じ見た目。小さくして描く面積を減らす */
   .crt.cheap .noise{inset:-48px}
+  /* 動かない4枚（走査線・縞・ガラスの反射・四隅の暗がり）は、1枚にまとめて合成する回数を減らす。
+     下から走査線→縞（濃さ.55をあらかじめ色に掛けてある）→反射→暗がり。重なる順は元のまま */
+  .crtfx{display:none;position:absolute;inset:0;z-index:9;pointer-events:none;border-radius:inherit;
+    background:
+      radial-gradient(ellipse 80% 72% at 50% 50%,transparent 58%,rgba(0,0,0,.6) 100%),
+      linear-gradient(158deg,rgba(255,255,255,.09) 0%,rgba(255,255,255,.025) 20%,transparent 38%),
+      radial-gradient(70% 40% at 30% 8%,rgba(255,255,255,.05),transparent 70%),
+      linear-gradient(to right,rgba(255,40,40,.055) 0 33.3%,rgba(40,255,90,.0385) 33.3% 66.6%,rgba(60,90,255,.055) 66.6% 100%),
+      linear-gradient(to bottom,transparent 0 58%,rgba(0,0,0,.38) 58% 100%);
+    background-size:100% 100%,100% 100%,100% 100%,3px 100%,100% 3px;
+    box-shadow:inset 0 0 40px 12px rgba(0,0,0,.75),inset 0 0 6px 2px rgba(0,0,0,.9)}
+  /* 始まる前は、元でも走査線と縞は出ていない（それらは池の中にあり、池は始まるまで隠れている）ので、反射と暗がりだけにする */
+  .stage:not(.on)~.crtfx{background:
+      radial-gradient(ellipse 80% 72% at 50% 50%,transparent 58%,rgba(0,0,0,.6) 100%),
+      linear-gradient(158deg,rgba(255,255,255,.09) 0%,rgba(255,255,255,.025) 20%,transparent 38%),
+      radial-gradient(70% 40% at 30% 8%,rgba(255,255,255,.05),transparent 70%)}
+  .crt.fxm .crtfx{display:block}
+  .crt.fxm :is(.scan,.mask,.glass,.vig){display:none}
+  /* ブルームを池の絵に直接重ねるときは、上に被せる板は要らない（ブルーム無しのときも隠す） */
+  .crt:is(.bin,.nobloom) #bloom{display:none}
   /* 計測用：ブラウン管の膜を全部消して、重さを比べる */
-  .crt.nocrt :is(.scan,.mask,.vig,.glass,.roll,.noise,.flick){display:none}
+  .crt.nocrt :is(.scan,.mask,.vig,.glass,.crtfx,.roll,.noise,.flick){display:none}
   /* 計測メニュー（?debug のときだけ作られる）。文字だけは操作を邪魔しない */
   .dbg{position:absolute;left:6px;z-index:30;pointer-events:none;font:10px/1.4 "DotGothic16",monospace;color:#cfe;opacity:.8}
   .dbg pre{margin:0 0 2px;padding:2px 4px;background:rgba(0,0,0,.55);white-space:pre;pointer-events:none}
@@ -299,7 +319,7 @@
 
 <div id="app">
   <div class="bezel">
-    <div class="crt" id="crt">
+    <div class="crt fxm bin" id="crt">
       <div class="stage" id="stage">
         <canvas id="cv" aria-label="音の玉を浮かべる夜の池。光の線が通ると音が鳴ります"></canvas>
         <canvas id="bloom" aria-hidden="true"></canvas>
@@ -463,6 +483,7 @@
       <div class="flick" aria-hidden="true"></div>
       <div class="glass" aria-hidden="true"></div>
       <div class="vig" aria-hidden="true"></div>
+      <div class="crtfx" aria-hidden="true"></div>
       <div class="standby" id="standby" role="button" tabindex="0" aria-label="はじめる">
         <canvas id="veil" aria-hidden="true"></canvas>
         <p>タップしてはじめる</p>
@@ -1081,7 +1102,8 @@
   let CW = 300, CH = 600, DPR = 1;
   // ---- 負荷対策のスイッチ（ふだんは全部ON。?debug のときだけ、画面の計測メニューから切り替えられる） ----
   const DBG = /[?&]debug\b/.test(location.search);
-  const OPT = {crt:1, dpr:1, spr:1, bloom:1, idle:1, nocrt:0};
+  const OPT_DEF = {crt:1, dpr:1, spr:1, bloom:1, idle:1, nocrt:0, fx:1, bin:1, nobloom:0};
+  const OPT = {...OPT_DEF};   // 古い保存値にないキーは、ここの初期値のまま残る
   const OPT_KEY = 'zen-debug-opt';
   if (DBG) { try { Object.assign(OPT, JSON.parse(localStorage.getItem(OPT_KEY) || '{}')); } catch (e) {} }
   // スマホ（指で触る端末）は画素数を抑える：2倍→1.5倍で、描く点が約44%減るが、見た目の差はほとんどない
@@ -1518,8 +1540,14 @@
       ctx.beginPath(); ctx.arc(p.x, p.y, 24, 0, TAU); ctx.stroke(); ctx.restore();
     }
     // ブルームは1/6の大きさのぼんやりした光なので、2コマに1回の更新でも見分けがつかない（毎コマ縮小コピーする分の負荷が半分になる）
-    if (!OPT.bloom || bloomDue || (bloomTick ^= 1)) {
+    // 縮小コピーは、ブルームを重ねる「前」の絵から取る（重ねたあとから取ると、光が自分に戻って積もっていく）
+    if (!OPT.nobloom && (!OPT.bloom || bloomDue || (bloomTick ^= 1))) {
       bloomDue = false; bctx.imageSmoothingEnabled = true; bctx.clearRect(0, 0, bloomCv.width, bloomCv.height); bctx.drawImage(cv, 0, 0, bloomCv.width, bloomCv.height);
+    }
+    // 池の絵は毎コマ水面で全面を塗り直すので、ここで重ねても前のコマの光は残らない。CSSの screen 50% と同じ重ね方
+    if (OPT.bin && !OPT.nobloom) {
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'screen'; ctx.globalAlpha = 0.5; ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(bloomCv, 0, 0, cv.width, cv.height); ctx.restore();
     }
   }
   let bloomTick = 0;
@@ -1607,6 +1635,7 @@
   let dbgMs = 0, dbgN = 0;
   function applyOpt() {
     crt.classList.toggle('cheap', !!OPT.crt); crt.classList.toggle('nocrt', !!OPT.nocrt);
+    crt.classList.toggle('fxm', !!OPT.fx); crt.classList.toggle('bin', !!OPT.bin); crt.classList.toggle('nobloom', !!OPT.nobloom);
     stillOn = !stillOn; setStill(isIdle);   // 状態を確かめ直して反映する
   }
   applyOpt();
@@ -1615,13 +1644,14 @@
     const info = document.createElement('pre'), grid = document.createElement('div'); grid.className = 'g';
     box.append(info, grid); crt.appendChild(box);
     window.zenDbg = {OPT, render, cv};   // 同じ瞬間にON/OFFで描いて見比べるための取っ手
-    const BTN = [['crt', '1 CRT止め/軽'], ['dpr', '2 解像度1.5'], ['spr', '3 玉スプライト'], ['bloom', '4 ブルーム間引'], ['idle', '5 待機15fps'], ['nocrt', '膜ぜんぶ消す']];
+    const BTN = [['crt', '1 CRT止め/軽'], ['dpr', '2 解像度1.5'], ['spr', '3 玉スプライト'], ['bloom', '4 ブルーム間引'], ['idle', '5 待機15fps'], ['fx', '6 飾りまとめ'], ['bin', '7 ブルーム内蔵'], ['nocrt', '膜ぜんぶ消す'], ['nobloom', 'ブルーム消す']];
     const save = () => { try { localStorage.setItem(OPT_KEY, JSON.stringify(OPT)); } catch (e) {} };
-    // 最適化は ON が通常。「膜ぜんぶ消す」だけは、押して消している間が ON（赤くなる）
-    const paint = () => { for (const b of grid.children) if (b.dataset.k) { const on = !!OPT[b.dataset.k], off = b.dataset.k === 'nocrt' ? on : !on; b.classList.toggle('off', off); b.textContent = b.dataset.t + (on ? ' ON' : ' OFF'); } };
+    // 最適化は ON が通常。「膜ぜんぶ消す」「ブルーム消す」だけは、押して消している間が ON（赤くなる）
+    const paint = () => { for (const b of grid.children) if (b.dataset.k) { const on = !!OPT[b.dataset.k], off = b.dataset.k === 'nocrt' || b.dataset.k === 'nobloom' ? on : !on; b.classList.toggle('off', off); b.textContent = b.dataset.t + (on ? ' ON' : ' OFF'); } };
     const apply = k => {
       if (k === 'dpr') { laidDpr = 0; relayoutNow(); }   // 解像度は作り直しが要る
       if (k === 'spr') clearSprites();
+      bloomDue = true;   // ブルームの出し方が変わったかもしれないので、縮小コピーを取り直す
       applyOpt(); paint(); save();
     };
     for (const [k, label] of BTN) {
@@ -1630,7 +1660,7 @@
       grid.appendChild(b);
     }
     const rs = document.createElement('button'); rs.textContent = 'reset';
-    rs.onclick = () => { Object.assign(OPT, {crt:1, dpr:1, spr:1, bloom:1, idle:1, nocrt:0}); try { localStorage.removeItem(OPT_KEY); } catch (e) {} laidDpr = 0; relayoutNow(); sprites.clear(); applyOpt(); paint(); };
+    rs.onclick = () => { Object.assign(OPT, OPT_DEF); bloomDue = true; try { localStorage.removeItem(OPT_KEY); } catch (e) {} laidDpr = 0; relayoutNow(); sprites.clear(); applyOpt(); paint(); };
     const hd = document.createElement('button'); hd.textContent = 'hide';   // メニューをたたむ（数字だけ残る）
     hd.onclick = () => { for (const b of grid.children) if (b !== hd) b.hidden = !b.hidden; hd.textContent = hd.textContent === 'hide' ? 'show' : 'hide'; };
     grid.append(rs, hd);
