@@ -249,7 +249,7 @@
   /* はじめる前の待機画面 */
   .standby{position:absolute;inset:0;z-index:7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;background:radial-gradient(60% 50% at 50% 45%,#0b0d16,#020308)}
   .standby p{position:relative;margin:0;font-size:20px;color:#9aa4c8;letter-spacing:.06em;animation:breathe 3.4s ease-in-out infinite;text-shadow:0 0 8px rgba(140,170,255,.6)}
-  .standby small{position:relative;font-size:17px;color:#5d6588}
+  .standby small{position:relative;font-size:17px;line-height:1.6;text-align:center;color:#5d6588}
   @keyframes breathe{50%{opacity:.3}}
   .standby canvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
   .standby.go{background:none;cursor:default}
@@ -453,7 +453,7 @@
       <div class="standby" id="standby" role="button" tabindex="0" aria-label="はじめる">
         <canvas id="veil" aria-hidden="true"></canvas>
         <p>タップしてはじめる</p>
-        <small>音が出ます</small>
+        <small>音が出ます<br>音量にご注意ください</small>
       </div>
     </div>
   </div>
@@ -805,6 +805,9 @@
     }
     if (ac.state !== 'running') {
       resumeAt = performance.now(); unlockTick(); ac.resume().catch(() => {});
+      armTimerFade();   // 止まっていた間もタイマーは進むので、音量をしぼる予約を残り時間に合わせてやり直す
+      // 休ませている間に止めた再生プレーヤーも、タップの中で動かし直す
+      if (outVia === 'player' && outAudio.paused) outAudio.play().catch(() => {});
       // 少し待っても戻らなければ、次のタップで作り直す
       clearTimeout(resumeCheck);
       resumeCheck = setTimeout(() => { if (ac && ac.state !== 'running' && !document.hidden) resumeFailed = true; }, 500);
@@ -813,6 +816,14 @@
     lastSoundAt = performance.now();
   }
   let resumeAt = 0, lastSoundAt = 0;
+  // 裏に回っている間（ロック画面の再生ボタンなど）の再開。ensureAudio は裏では何もしないので、ここで最低限だけ戻す
+  function wakeAudio() {
+    if (!ac || ac.state === 'closed') return;
+    if (ac.state !== 'running') { resumeAt = performance.now(); ac.resume().catch(() => {}); }
+    if (faded) { faded = false; applyReverb(); }
+    if (outVia === 'player' && outAudio.paused) outAudio.play().catch(() => {});
+    lastSoundAt = performance.now();
+  }
   // 音を出せる状態か。止まっている間（着信・Siri・裏に回ったあと）に予約を積むと、
   // 再開した瞬間に全部まとめて鳴って大きな音になるので、再開要求の直後以外は捨てる
   const audioReady = () => ac && (ac.state === 'running' || performance.now() - resumeAt < 600);
@@ -1420,7 +1431,7 @@
 
   // ================= loop（毎秒30コマ） =================
   const fading = [];
-  const FPS = 30;
+  const FPS = 30, IDLE_FPS = 10;
   let last = performance.now(), acc = 1, nextDrop = 2;
   // パソコンで別のタブに移っても流し続けるための時計。画面の描画（requestAnimationFrame）は裏のタブでは止まるので、
   // 裏にいる間だけ、間引かれにくい Worker のタイマーで演奏を進める（Worker が使えなければ通常のタイマー）
@@ -1433,15 +1444,29 @@
     timerTick();
     if (playing) schedule(dt);
   }
+  // 裏の時計は「裏に回っていて、演奏中」のときだけ動かす（止まっているときに回し続けると電池を使うため）
+  let bgOn = false, bgSet = () => {};
+  function syncBg() {
+    const want = document.hidden && playing;
+    if (want === bgOn) return;
+    bgOn = want;
+    if (want) lastBg = performance.now();   // 止めていた間の時間を、まとめて進めてしまわないように
+    bgSet(want);
+  }
   (() => {
-    let fallback = 0;
-    const useInterval = () => { if (!fallback) fallback = setInterval(bgTick, 100); };
+    let w = null, fallback = 0;
+    // Worker が使えないときは、通常のタイマーで同じことをする
+    const useInterval = () => { w = null; bgSet = on => { clearInterval(fallback); fallback = on ? setInterval(bgTick, 100) : 0; }; bgSet(bgOn); };
     try {
-      const url = URL.createObjectURL(new Blob(['setInterval(() => postMessage(0), 60);'], {type:'text/javascript'}));
-      const w = new Worker(url);
+      const url = URL.createObjectURL(new Blob(['let t = 0; onmessage = e => { clearInterval(t); t = e.data ? setInterval(() => postMessage(0), 60) : 0; };'], {type:'text/javascript'}));
+      w = new Worker(url);
       w.onmessage = bgTick; w.onerror = useInterval;
+      bgSet = on => w.postMessage(on);
     } catch (e) { useInterval(); }
   })();
+  // 画面を触っていない時間を測る（触ったら、すぐ元のコマ数に戻すため）
+  let lastTouch = performance.now();
+  for (const ev of ['pointerdown', 'pointermove', 'keydown', 'wheel']) document.addEventListener(ev, () => { lastTouch = performance.now(); }, {capture:true, passive:true});
   function frame(now) {
     // 裏にいる間は Worker 側の時計が演奏を進めるので、こちらは何もしない（二重に進めない）
     if (document.hidden) { last = now; requestAnimationFrame(frame); return; }
@@ -1451,17 +1476,19 @@
     if (playing) schedule(dt);
     for (let i = pending.length - 1; i >= 0; i--) if (clock >= pending[i].at) { const p = pending[i]; pending.splice(i, 1); flash(p.n); }
     acc += dt;
-    if (acc + 0.004 >= 1 / FPS && powered) {
+    // 止まっていて、触られても音が鳴ってもいない間は、コマ数を落として電池を守る
+    const idle = !playing && now - lastTouch > 3000 && now - lastSoundAt > 3000;
+    if (acc + 0.004 >= 1 / (idle ? IDLE_FPS : FPS) && powered) {
       for (const n of notes) {
         n.pulse = Math.max(0, n.pulse - acc * 1.3); n.glow = Math.max(0, n.glow - acc * 0.45); n.ringAge += acc; n.pop = Math.max(0, n.pop - acc * 3);
-        if (!CALM && !reduceMotion && Math.random() < 0.015) disturb(ox(n), oy(n), radiusOf(n) + 3, 0.25);
+        if (!CALM && !reduceMotion && Math.random() < 0.015 * Math.max(1, acc * FPS)) disturb(ox(n), oy(n), radiusOf(n) + 3, 0.25);
       }
       if (!reduceMotion && clock > nextDrop) {
         disturb(F.x0 + Math.random() * F.w, F.y0 + Math.random() * F.h, 4, 0.9 + Math.random() * 0.8);
         nextDrop = clock + 0.9 + Math.random() * 2.4;
       }
-      stepWater();
-      if (acc > 1.6 / FPS) stepWater();
+      // 水の動きは1コマが30分の1秒ぶん。コマ数が落ちているときは、経った時間に合わせて回数を増やす（速さが変わらないように）
+      for (let i = Math.min(4, acc > 1.6 / FPS ? Math.round(acc * FPS) : 1); i > 0; i--) stepWater();
       acc = 0; render();
     }
     requestAnimationFrame(frame);
@@ -1590,9 +1617,10 @@
   }
   // ロック画面やコントロールセンターに、曲名と再生／一時停止ボタンを出す
   if ('mediaSession' in navigator) {
+    // 曲名や画像の設定に失敗しても、再生／一時停止のボタンは使えるように、別々に試す
+    try { navigator.mediaSession.metadata = new MediaMetadata({title:'禅シーケンサー', artwork:[{src:'icon-512.png', sizes:'512x512', type:'image/png'}]}); } catch (e) {}
     try {
-      navigator.mediaSession.metadata = new MediaMetadata({title:'禅シーケンサー', artwork:[{src:'icon-512.png', sizes:'512x512', type:'image/png'}]});
-      navigator.mediaSession.setActionHandler('play', () => { ensureAudio(); if (outVia === 'player') outAudio.play().catch(() => {}); setPlaying(true); });
+      navigator.mediaSession.setActionHandler('play', () => { ensureAudio(); wakeAudio(); setPlaying(true); });
       navigator.mediaSession.setActionHandler('pause', () => setPlaying(false));
     } catch (e) {}
   }
@@ -1614,12 +1642,13 @@
     // 再開するときは、取り消した予約の分だけ先へ進めて、無音のすき間ができないようにする
     if (on && !playing && schedUntil - playClock > LOOKAHEAD) playClock = schedUntil - LOOKAHEAD;
     playing = on; applyNoise();
-    // 一時停止しても再生プレーヤーは止めない（無音を流し続ける）。止めると、次に鳴らすときにタップが必要になるため
+    // 一時停止してもすぐには再生プレーヤーを止めない（10秒たつと休ませる）。すぐ止めると、続けて触ったときに音が遅れるため
     try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = on ? 'playing' : 'paused'; } catch (e) {}
     if (on && outVia === 'player' && outAudio.paused) outAudio.play().catch(() => {});
     playBtn.setAttribute('aria-pressed', String(on));
     playBtn.setAttribute('aria-label', on ? '一時停止' : '再生');
     if (on) armTimerFade();   // タイマーで小さくしたままの音量を戻す／止まっていた間のずれを直す
+    syncBg();
   }
   // はじまりの演出：タップしたところに「タン」と波紋が生まれ、少しおいてまんなかへ一滴落ちて（音階をさらっと流す）、
   // その一滴のところから暗がりが晴れて、水面が浮かび上がってくる
@@ -1894,7 +1923,7 @@
     [ic('rabbit'), '右下のうさぎボタンで、速さのバーが開きます。かめ・うさぎのボタンか、ゲージをタップしたりなぞったりして、光が渡る速さを変えられます。'],
     [ic('pencil', 'eraser'), '鉛筆は置くモード、消しゴムは消すモードです。'],
     [ic('dice', 'trash'), 'サイコロボタンで、玉の音を一気に変えることができます。ゴミ箱ボタンで玉を一気に消すことができます。'],
-    [ic('speaker', 'speakerOff'), 'スピーカーボタンで音を消したり戻したりできます。再生中は、アプリを切り替えたり画面を消したりしても流れ続けます（端末によっては止まることがあります）。'],
+    [ic('speaker', 'speakerOff'), 'スピーカーボタンで音を消したり戻したりできます。音楽アプリと同じように、マナーモード中も音が出ます。再生中は、アプリを切り替えたり画面を消したりしても流れ続けます（端末によっては止まることがあります）。'],
     [ic('gear'), '歯車ボタンで、音階・音・音質・見え方などを設定できます。'],
     [ic('share'), '共有ボタンで、作った玉の配置と設定をほかの人に渡したり、受け取ったものを読み込んだりできます。']
   ].map(([i, t]) => `<li>${i}<span>${t.replace(/。(?=.)/g, '。<br>')}</span></li>`).join('');   // 句点ごとに改行
@@ -2272,14 +2301,26 @@
     last = performance.now();
     lastBg = performance.now();
     // 裏に回っても音は消さない（スマホでもパソコンでも流し続ける）。音を消すのはスピーカーボタンだけ
+    syncBg();
     if (document.hidden) { saveNow(); pointers.clear(); for (const n of notes) n.held = false; return; }
   });
   // iPhoneのSafariは pointerdown では音の再開を認めないことがあるので、touchend と click でも再開を試みる
   for (const ev of ['touchend', 'click']) document.addEventListener(ev, () => { if (powered && !muted && ac && ac.state !== 'running' && !document.hidden) ensureAudio(); }, {capture:true, passive:true});
   // 戻ってきたときに音が止まったままなら、タップで戻ることを知らせる
-  // 止まっていて音も鳴っていない間は、音の処理（残響の計算）を休ませて電池を守る
+  // 止まって10秒たち、音も鳴っていなければ、表でも裏でも音を丸ごと休ませる（音の処理と再生プレーヤー）。
+  // 裏で動かしたままだと、iPhoneが「音楽アプリが再生中」とみなしてページを生かし続け、電池を使うため。
+  // 再開は再生ボタン・ロック画面の再生・玉に触れたとき
+  const idleAudio = () => !playing && performance.now() - lastSoundAt > 10000;
   setInterval(() => {
-    if (ac && ac.state === 'running' && !playing && !document.hidden && performance.now() - lastSoundAt > 10000) fadeOutAudio(() => { if (!playing && performance.now() - lastSoundAt > 10000) ac.suspend().catch(() => {}); });
+    if (!idleAudio() || !ac || ac.state === 'closed') return;
+    const awake = ac.state === 'running' || (outVia === 'player' && !outAudio.paused);
+    if (!awake) return;
+    fadeOutAudio(() => {
+      if (!idleAudio()) return;   // しぼっている間に鳴らされた
+      if (ac.state === 'running') ac.suspend().catch(() => {});
+      if (outVia === 'player') outAudio.pause();
+      try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'; } catch (e) {}
+    });
   }, 2000);
   // 画面サイズ変更：iOSのアドレスバーの出入りなどで何度も呼ばれるので、まとめて1回・サイズが変わったときだけ作り直す
   let laidW = 0, laidH = 0, laidDpr = 0, relayoutTimer = 0;
