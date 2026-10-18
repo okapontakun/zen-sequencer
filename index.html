@@ -1320,7 +1320,14 @@
     else ctx.drawImage(c, x - h, y - h, h * 2, h * 2);
     ctx.globalAlpha = 1;   // 後ろで描く輪郭などに薄さが残らないように戻す
   }
-  const hueQ = (n, hue) => n.q ? Math.round(hue / 5) * 5 % 360 : Math.round(hue);
+  // 星の玉は色がゆっくり移り変わる。色ごとに絵を作ると数が増えすぎて作り直しばかりになるので、
+  // 30度ごとの12色の絵だけを作り、となり合う2色を、混ぜ具合を変えて重ねる（どれも光を足す重ね方なので、中間の色とほぼ同じに見える）
+  function blitHue(n, hue, make, x, y, s, a, rot) {
+    if (!n.q) { blit(make(Math.round(hue)), x, y, s, a, rot); return; }
+    const hf = (((hue % 360) + 360) % 360) / 30, i = Math.floor(hf), f = hf - i;
+    if (f < 0.99) blit(make((i % 12) * 30), x, y, s, a * (1 - f), rot);
+    if (f > 0.01) blit(make(((i + 1) % 12) * 30), x, y, s, a * f, rot);
+  }
   function drawOrbUnder(n, t, alpha) {
     if (CALM) drawCalmUnder(n, t, alpha); else drawGlassUnder(n, t, alpha, alpha);
   }
@@ -1346,9 +1353,8 @@
     if (OPT.spr) {
       const a = (n.q ? 0 : 0.16 * v) + n.glow * 0.18;
       if (a < 0.002) return;
-      const h = hueQ(n, hue);
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
-      blit(sprite('u' + h, 48, g => {
+      blitHue(n, hue, h => sprite('u' + h, 48, g => {
         const gd = g.createRadialGradient(0, 0, 0, 0, 0, 48);
         gd.addColorStop(0, `hsla(${h},80%,60%,1)`); gd.addColorStop(1, `hsla(${h},80%,60%,0)`);
         g.fillStyle = gd; g.fillRect(-48, -48, 96, 96);
@@ -1370,17 +1376,17 @@
     const r = R * 1.25;
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineJoin = 'round';
     let g;
-    const sp = OPT.spr, h = hueQ(n, hue), lq = Math.round(lt), kb = Math.round(Math.min(1, k) * 12), kq = kb / 12, sc0 = R / RU;
+    const sp = OPT.spr, lq = Math.round(lt), kb = Math.round(Math.min(1, k) * 6), kq = kb / 6, sc0 = R / RU;   // 光り具合は6段階（絵の数を抑える）
     if (sp && star) {
       // 星の本体（重ねた層と芯）をまとめて1枚に描いておく。薄い層の足し算なので、濃さを後から掛けても同じ
-      blit(sprite(`s${h}|${lq}|${kb}`, 36, c => {
+      blitHue(n, hue, h => sprite(`s${h}|${lq}|${kb}`, 36, c => {
         c.globalCompositeOperation = 'lighter';
         for (let i = 0; i < 6; i++) { c.fillStyle = `hsla(${h},75%,${58 + lq + kq * 16}%,0.045)`; starPath(c, 0, 0, RU * (1.2 - i * 0.072) * 1.32); c.fill(); }
         c.fillStyle = `hsla(${h},75%,${62 + lq + kq * 16}%,0.24)`; starPath(c, 0, 0, RU * 0.8 * 1.32); c.fill();
         c.fillStyle = `hsla(${h},75%,${70 + lq + kq * 14}%,0.16)`; starPath(c, 0, 0, RU * 0.5 * 1.32); c.fill();
       }), x, y, sc0, v, rot);
     } else if (sp) {
-      blit(sprite(`o${h}|${lq}|${kb}`, 26, c => {
+      blitHue(n, hue, h => sprite(`o${h}|${lq}|${kb}`, 26, c => {
         const gd = c.createRadialGradient(0, 0, 0, 0, 0, RU * 1.25);
         gd.addColorStop(0, `hsla(${h},75%,${62 + lq + kq * 18}%,0.62)`);
         gd.addColorStop(0.45, `hsla(${h},75%,${55 + lq}%,0.34)`);
@@ -1424,7 +1430,7 @@
     if (eg > 0.02) {
       const rr = R * (1 + k * 0.12);
       if (sp) {
-        blit(sprite(`${star ? 'G' : 'g'}${h}`, 28, c => {
+        blitHue(n, hue, h => sprite(`${star ? 'G' : 'g'}${h}`, 28, c => {
           const gd = c.createRadialGradient(0, 0, 0, 0, 0, RU * (star ? 1.3 : 1));
           gd.addColorStop(0, `hsla(${h},90%,85%,0.45)`); gd.addColorStop(1, `hsla(${h},90%,70%,0.12)`);
           c.fillStyle = gd; if (star) starPath(c, 0, 0, RU * 1.32); else { c.beginPath(); c.arc(0, 0, RU, 0, TAU); }
