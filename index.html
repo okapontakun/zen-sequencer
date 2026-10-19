@@ -980,6 +980,16 @@
   // 音は「いま」ではなく少しだけ先に予約する。iPhoneでは鳴らし始めの直後に音の時計が止まったり飛んだりして、
   // 「いま」に置いた音の立ち上がりが欠けて「プツッ」と鳴るため（URLに ?a=0 をつけると、比べるために以前の鳴らし方に戻る）
   const FIX_A = !/[?&]a=0(&|$)/.test(location.search);
+  // やわらかい音色の波（基音＋2倍音）。2倍音の大きさごとに1度だけ作って使い回す。音の処理を作り直したら作り直す
+  // （大きさを自動でそろえる機能は切る：切らないと、足し合わせた波の大きさが変わってしまう）
+  const softWaves = new Map(); let softWaveAc = null;
+  function softWave(a2) {
+    if (softWaveAc !== ac) { softWaves.clear(); softWaveAc = ac; }
+    const k = Math.round(a2 * 1000);
+    let w = softWaves.get(k);
+    if (!w) { w = ac.createPeriodicWave(new Float32Array(3), new Float32Array([0, 1, k / 1000]), {disableNormalization:true}); softWaves.set(k, w); }
+    return w;
+  }
   function playNote(midi, pan = 0, delaySec = 0) {
     if (muted || !audioReady()) return;
     const t = ac.currentTime + (FIX_A ? Math.max(delaySec, 0.01) : delaySec);
@@ -1021,14 +1031,22 @@
     if (ac.createStereoPanner) { const p = ac.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); vg.connect(p); out = p; chain.push(p); }
     out.connect(bus);
     // 高い音では、耳に刺さりやすい倍音成分（矩形波・2倍音・三角波）の割合を減らす
-    const parts = chip ? [['square',1,0,0.32 * (1 - 0.4 * hi)],['triangle',0.5,0,0.7]] : [['sine',1,0,1],['sine',2,0,0.16 * (1 - 0.6 * Math.min(1, hi))],['triangle',1,6,0.2 * (1 - 0.6 * Math.min(1, hi))]];
     const oscs = [];
-    for (const [type, mul, cents, amp] of parts) {
-      const o = ac.createOscillator();
-      o.type = type; o.frequency.value = f * mul; o.detune.value = cents + (chip ? 0 : Math.random() * 8 - 4);
-      const og = ac.createGain(); og.gain.value = amp;
-      o.connect(og); og.connect(env); o.start(t); o.stop(t + tail + 0.2);
-      oscs.push(o); chain.push(og);
+    const addOsc = (setup, amp) => {
+      const o = ac.createOscillator(); setup(o);
+      let src = o;
+      if (amp !== 1) { const og = ac.createGain(); og.gain.value = amp; o.connect(og); src = og; chain.push(og); }
+      src.connect(env); o.start(t); o.stop(t + tail + 0.2); oscs.push(o);
+    };
+    if (chip) {
+      addOsc(o => { o.type = 'square'; o.frequency.value = f; }, 0.32 * (1 - 0.4 * hi));
+      addOsc(o => { o.type = 'triangle'; o.frequency.value = f * 0.5; }, 0.7);
+    } else {
+      const soft = Math.min(1, hi);
+      // 基音と2倍音は、1つの発音部品（2つを足した形の波）にまとめる。鳴る音は同じで、部品が減るぶん音の処理が軽くなる
+      addOsc(o => { o.setPeriodicWave(softWave(0.16 * (1 - 0.6 * soft))); o.frequency.value = f; o.detune.value = Math.random() * 8 - 4; }, 1);
+      // 少しずらした三角波は、音のゆらぎを作っているので別のまま
+      addOsc(o => { o.type = 'triangle'; o.frequency.value = f; o.detune.value = 6 + Math.random() * 8 - 4; }, 0.2 * (1 - 0.6 * soft));
     }
     // 鳴り終わったらつなぎを外す（Safariで古いノードが残り続けて重くなるのを防ぐ）
     oscs[0].onended = () => { for (const nd of oscs.concat(chain)) try { nd.disconnect(); } catch (e) {} };
