@@ -1631,10 +1631,12 @@
     timerTick();
     if (playing) schedule(dt);
   }
-  // 裏の時計は「裏に回っていて、演奏中」のときだけ動かす（止まっているときに回し続けると電池を使うため）
+  // 裏の時計は、演奏中はずっと動かしておき、裏に回ったかどうかは毎回自分で確かめる（bgTick の中）。
+  // iPhoneは「裏に回った」という知らせ（visibilitychange）が遅れたり来なかったりすることがあり、
+  // 知らせを待ってから時計を動かすと、裏に回った途端に音が止まってしまうため。止めているときは時計も止めて電池を守る
   let bgOn = false, bgSet = () => {};
   function syncBg() {
-    const want = document.hidden && playing;
+    const want = playing;
     if (want === bgOn) return;
     bgOn = want;
     if (want) lastBg = performance.now();   // 止めていた間の時間を、まとめて進めてしまわないように
