@@ -303,6 +303,12 @@
     .hud-bot{--pad-x:20px}
     .ttl{font-size:13px;letter-spacing:0}
   }
+  /* 調べもの用の小さな操作盤（?debug のときだけ出る） */
+  .dbg{position:absolute;left:8px;top:62px;z-index:7;display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:6px;max-width:calc(100% - 16px);
+    background:rgba(11,15,42,.72);border:2px solid var(--dim);border-radius:6px;font-size:13px;line-height:1.4}
+  .dbg button{min-height:32px;padding:0 10px;border:2px solid var(--line);border-radius:4px;background:rgba(11,15,42,.6);color:var(--text)}
+  .dbg .dbg-info{margin:0;color:var(--dim);white-space:pre-line}
+  .dbg.min{padding:2px}
   @media (prefers-reduced-motion: reduce){
     .roll,.noise,.flick,.standby p,.msg .caret,.erasing{animation:none}
   }
@@ -503,7 +509,12 @@
   const reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
   const KEY = 'iyashi-water-v2';
   const loadSaved = () => { try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { return null; } };
-  const writeSaved = v => { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch (e) {} };
+  // 前に書いた中身と同じなら書かない（裏に回るたびに、変わっていない保存で端末の保存領域に書きにいかないように）
+  let lastWritten = null;
+  const writeSaved = v => { try { const s = JSON.stringify(v); if (s === lastWritten) return; localStorage.setItem(KEY, s); lastWritten = s; } catch (e) {} };
+  // 音の出し方の切り替え（URL に ?debug があるときだけ有効。iPhone で音程が一瞬下がる原因を切り分けるための調べもの用）
+  const DEBUG = /[?&]debug(?:[=&]|$)/.test(location.search), DBG_KEY = 'zen-debug-audio';
+  const DBG = (() => { try { return DEBUG ? JSON.parse(localStorage.getItem(DBG_KEY) || '{}') || {} : {}; } catch (e) { return {}; } })();
   const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 
   // ================= ドット絵アイコン（12×12） =================
@@ -790,7 +801,9 @@
       // スマホは音の処理に余裕を持たせる（小さすぎる区切りで処理すると、重なったときや鳴らし始めにプツプツしやすい）。
       // 'balanced' はタップから音が出るまでの遅れが気にならない程度のまま、途切れにくくする設定
       const mobile = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
-      try { ac = new AC(mobile ? {latencyHint:'balanced'} : undefined); } catch (e) { ac = new AC(); }
+      // 調べもの用（?debug）：'playback' は、さらに余裕を持たせる設定
+      const hint = DBG.lat === 'playback' ? 'playback' : mobile ? 'balanced' : null;
+      try { ac = new AC(hint ? {latencyHint:hint} : undefined); } catch (e) { ac = new AC(); }
       // 出口：超低域カット → やわらかいコンプ → 耳に刺さる高域を少し下げる → 音量 → 割れ防止のリミッター
       const hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 35;
       const master = ac.createDynamicsCompressor();
@@ -1630,6 +1643,9 @@
     clock += dt;
     timerTick();
     if (playing) schedule(dt);
+    // 裏では光らせる予定を消化する人がいない。溜めると、戻った瞬間に一斉に光って重くなるので、時刻が過ぎた分は捨てる
+    let j = 0; for (const p of pending) if (p.at > clock) pending[j++] = p;
+    pending.length = j;
   }
   // 裏の時計は、演奏中はずっと動かしておき、裏に回ったかどうかは毎回自分で確かめる（bgTick の中）。
   // iPhoneは「裏に回った」という知らせ（visibilitychange）が遅れたり来なかったりすることがあり、
@@ -1694,7 +1710,7 @@
     on = !!((on || S.lite) && OPT.crt);   // 軽量モードでは、ずっと止めておく
     if (on !== stillOn) { stillOn = on; crt.classList.toggle('still', on); }
   }
-  document.addEventListener('visibilitychange', () => { if (document.hidden) setStill(true); });
+  // 裏に回るときに膜のクラスは触らない（裏では描かれず、膜のアニメも進まない。触ると全体の再計算が走り、戻ったときにもう一度走るため）
 
   // 負荷対策のスイッチに合わせて、ブラウン管の膜やブルームの見せ方を決める
   function applyOpt() {
@@ -1814,7 +1830,7 @@
   let outVia = 'direct';
   function connectOutput(node) {
     const direct = () => { try { node.disconnect(); } catch (e) {} node.connect(ac.destination); outVia = 'direct'; };
-    if (!ac.createMediaStreamDestination || !outAudio || !window.MediaStream) { direct(); return; }
+    if (DBG.via === 'direct' || !ac.createMediaStreamDestination || !outAudio || !window.MediaStream) { direct(); return; }
     try {
       const dest = ac.createMediaStreamDestination();
       node.connect(dest);
@@ -2146,7 +2162,7 @@
   // スマホで裏に回ったり画面が消えたりして画面の処理が止められても、音は時間どおりに消え、戻ったときに一時停止の表示になる
   const TIMER_FADE = 10;
   let timerEnd = 0, timerGain = null, tmrView = 0, tmrLast = 30 * 60;
-  const timerDlg = $('#timerDlg'), clockBtn = $('#clockBtn'), tmrH = $('#tmrH'), tmrM = $('#tmrM'), tmrS = $('#tmrS');
+  const tmrLeft = $('#tmrLeft'), timerDlg = $('#timerDlg'), clockBtn = $('#clockBtn'), tmrH = $('#tmrH'), tmrM = $('#tmrM'), tmrS = $('#tmrS');
   const opts = n => Array.from({length:n}, (_, i) => `<option value="${i}">${i}</option>`).join('');
   tmrH.innerHTML = opts(24); tmrM.innerHTML = opts(60); tmrS.innerHTML = opts(60);
   // 音量をしぼる予約を、いまの残り時間に合わせてやり直す（タイマーがなければ元の音量に戻す）
@@ -2181,7 +2197,8 @@
     const sec = timerEnd ? 0 : tmrLast;
     if (!timerEnd) { tmrH.value = String(Math.floor(sec / 3600)); tmrM.value = String(Math.floor(sec / 60) % 60); tmrS.value = String(sec % 60); }
     renderTimer(); timerDlg.hidden = false; haptic(5);
-    clearInterval(tmrView); tmrView = setInterval(renderTimer, 250);
+    // 開いている間の更新は、残り時間の文字が変わったときだけ（毎回属性まで書き直さない）
+    clearInterval(tmrView); tmrView = setInterval(() => { if (!timerEnd) return; const t = fmt((timerEnd - Date.now()) / 1000); if (tmrLeft.textContent !== t) tmrLeft.textContent = t; }, 250);
   }
   function closeTimer() { timerDlg.hidden = true; clearInterval(tmrView); }
   clockBtn.addEventListener('click', openTimer);
@@ -2213,12 +2230,15 @@
   // 右上の歯車ボタン：設定の画面を開く（前に見ていたタブのまま開き、切り替えは上のタブで行う）
   $('#gearBtn').addEventListener('click', () => {
     if (!powered) return;
-    helpWin.hidden = true; shareWin.hidden = true; renderSettings(); settingsWin.hidden = false; haptic(5);
+    helpWin.hidden = true; shareWin.hidden = true;
+    // 設定を変えるたびに画面は作り直されているので、前に開いたときから変わっていなければ作り直さない（開く瞬間の重い処理を避ける）
+    if (setSig() !== setShown) renderSettings();
+    settingsWin.hidden = false; haptic(5);
   });
   // 右上の共有ボタン：玉の配置と設定を渡す／受け取る画面を開く
   $('#shareBtn').addEventListener('click', () => {
     if (!powered) return;
-    helpWin.hidden = true; settingsWin.hidden = true; $('#codeOut').value = shareText(); shareWin.hidden = false; haptic(5);
+    helpWin.hidden = true; settingsWin.hidden = true; const t = shareText(); if (codeOut.value !== t) codeOut.value = t; shareWin.hidden = false; haptic(5);
   });
 
   const rootSel = $('#rootSel'), scaleSel = $('#scaleSel'), keysEl = $('#keys');
@@ -2423,7 +2443,10 @@
     const b = e.target.closest('[data-t]'); if (!b) return;
     S.tune = b.dataset.t; renderToggles(); saveSoon(); preview();
   });
-  function renderSettings() { renderScale(); renderToggles(); drawVol(); drawRev(); drawDly(); drawWhite(); drawPink(); drawQ(); drawEq(); drawTame(); }
+  // 設定の画面に出ている値をまとめた印。前に作ったときと同じなら、開くときに作り直さなくていい
+  const setSig = () => [S.root, S.scaleKey, S.vol, S.wn, S.pn, S.rev, S.dly, S.q, S.tame, S.cvd, S.lite, S.voice, S.tune, S.eq.join(), enabled.map(v => v ? 1 : 0).join('')].join('|');
+  let setShown = '';
+  function renderSettings() { renderScale(); renderToggles(); drawVol(); drawRev(); drawDly(); drawWhite(); drawPink(); drawQ(); drawEq(); drawTame(); setShown = setSig(); }
 
   // ================= データの受け渡し =================
   // 玉の位置・音と設定を数十〜数百バイトに詰め、URLの # に使える文字（英数字と - _ .）だけのコードにする
@@ -2506,6 +2529,45 @@
     if (d) confirmAsk('orb', '共有されたデータを読み込みますか？今の玉と設定は置き換わります。', () => applyShare(d));
   }
   window.addEventListener('hashchange', () => { if (powered) checkHash(); });
+
+  // ===== 調べもの用の操作盤（?debug のときだけ） =====
+  // 出力のしかたと遅延の設定は、音の処理を作るときにしか読まれない。保存して、ページを読み込み直して反映する
+  if (DEBUG) {
+    const box = document.createElement('div'); box.className = 'dbg';
+    const mk = (t, f) => { const b = document.createElement('button'); b.textContent = t; b.addEventListener('click', f); return b; };
+    const flip = (k, a, b) => { DBG[k] = DBG[k] === a ? b : a; try { localStorage.setItem(DBG_KEY, JSON.stringify(DBG)); } catch (e) {} location.reload(); };
+    const bVia = mk('', () => flip('via', 'direct', 'player')), bLat = mk('', () => flip('lat', 'playback', '')), info = document.createElement('p'); info.className = 'dbg-info';
+    let min = false;
+    const bHide = mk('', () => { min = !min; draw(); });
+    const draw = () => {
+      bVia.textContent = '出力: ' + (DBG.via === 'direct' ? '直接' : 'プレーヤー経由');
+      bLat.textContent = '遅延: ' + (DBG.lat === 'playback' ? '余裕' : '標準');
+      bHide.textContent = min ? 'debug' : '隠す';
+      bVia.hidden = bLat.hidden = info.hidden = min; box.classList.toggle('min', min);
+      if (!min) {
+        const f = v => typeof v === 'number' ? v.toFixed(4) : '-';
+        info.textContent = ac ? `baseLatency ${f(ac.baseLatency)}
+outputLatency ${f(ac.outputLatency)}
+sampleRate ${ac.sampleRate}
+状態 ${ac.state} / ${outVia}` : '（音はまだ始まっていません）';
+      }
+    };
+    box.append(bVia, bLat, info, bHide); $('#stage').append(box); draw();
+    setInterval(() => { if (!min && !document.hidden) draw(); }, 1000);
+  }
+
+  // 窓やダイアログを初めて開くときは、配置や文字の準備で画面が一瞬止まる。音が鳴り出す前の待機画面のうちに、一つずつ先に済ませておく
+  // （同じ処理の中で開いて閉じるので、画面には一瞬も出ない）
+  (() => {
+    const els = [settingsWin, shareWin, helpWin, timerDlg, spdPop];
+    const next = () => {
+      const el = els.shift();
+      if (!el || powered) return;   // 始まってしまったら、もうやらない
+      if (el.hidden) { el.hidden = false; void el.offsetHeight; el.hidden = true; }
+      setTimeout(next, 60);
+    };
+    setTimeout(next, 600);
+  })();
 
   // ノイズの模様を一度だけ作る
   (() => {
