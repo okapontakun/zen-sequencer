@@ -303,12 +303,6 @@
     .hud-bot{--pad-x:20px}
     .ttl{font-size:13px;letter-spacing:0}
   }
-  /* 調べもの用の小さな操作盤（?debug のときだけ出る） */
-  .dbg{position:absolute;left:8px;top:62px;z-index:7;display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:6px;max-width:calc(100% - 16px);
-    background:rgba(11,15,42,.72);border:2px solid var(--dim);border-radius:6px;font-size:13px;line-height:1.4}
-  .dbg button{min-height:32px;padding:0 10px;border:2px solid var(--line);border-radius:4px;background:rgba(11,15,42,.6);color:var(--text)}
-  .dbg .dbg-info{margin:0;color:var(--dim);white-space:pre-line}
-  .dbg.min{padding:2px}
   @media (prefers-reduced-motion: reduce){
     .roll,.noise,.flick,.standby p,.msg .caret,.erasing{animation:none}
   }
@@ -512,9 +506,6 @@
   // 前に書いた中身と同じなら書かない（裏に回るたびに、変わっていない保存で端末の保存領域に書きにいかないように）
   let lastWritten = null;
   const writeSaved = v => { try { const s = JSON.stringify(v); if (s === lastWritten) return; localStorage.setItem(KEY, s); lastWritten = s; } catch (e) {} };
-  // 音の出し方の切り替え（URL に ?debug があるときだけ有効。iPhone で音程が一瞬下がる原因を切り分けるための調べもの用）
-  const DEBUG = /[?&]debug(?:[=&]|$)/.test(location.search), DBG_KEY = 'zen-debug-audio';
-  const DBG = (() => { try { return DEBUG ? JSON.parse(localStorage.getItem(DBG_KEY) || '{}') || {} : {}; } catch (e) { return {}; } })();
   const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 
   // ================= ドット絵アイコン（12×12） =================
@@ -801,9 +792,8 @@
       // スマホは音の処理に余裕を持たせる（小さすぎる区切りで処理すると、重なったときや鳴らし始めにプツプツしやすい）。
       // 'balanced' はタップから音が出るまでの遅れが気にならない程度のまま、途切れにくくする設定
       const mobile = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
-      // 調べもの用（?debug）：'playback' は、さらに余裕を持たせる設定
-      const hint = DBG.lat === 'playback' ? 'playback' : mobile ? 'balanced' : null;
-      try { ac = new AC(hint ? {latencyHint:hint} : undefined); } catch (e) { ac = new AC(); }
+      // （'playback' にしても iPhone では区切りの大きさが変わらないことを実機で確かめたので、'balanced' のまま）
+      try { ac = new AC(mobile ? {latencyHint:'balanced'} : undefined); } catch (e) { ac = new AC(); }
       // 出口：超低域カット → やわらかいコンプ → 耳に刺さる高域を少し下げる → 音量 → 割れ防止のリミッター
       const hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 35;
       const master = ac.createDynamicsCompressor();
@@ -1848,7 +1838,7 @@
   let outVia = 'direct';
   function connectOutput(node) {
     const direct = () => { try { node.disconnect(); } catch (e) {} node.connect(ac.destination); outVia = 'direct'; };
-    if (DBG.via === 'direct' || !ac.createMediaStreamDestination || !outAudio || !window.MediaStream) { direct(); return; }
+    if (!ac.createMediaStreamDestination || !outAudio || !window.MediaStream) { direct(); return; }
     try {
       const dest = ac.createMediaStreamDestination();
       node.connect(dest);
@@ -2547,32 +2537,6 @@
     if (d) confirmAsk('orb', '共有されたデータを読み込みますか？今の玉と設定は置き換わります。', () => applyShare(d));
   }
   window.addEventListener('hashchange', () => { if (powered) checkHash(); });
-
-  // ===== 調べもの用の操作盤（?debug のときだけ） =====
-  // 出力のしかたと遅延の設定は、音の処理を作るときにしか読まれない。保存して、ページを読み込み直して反映する
-  if (DEBUG) {
-    const box = document.createElement('div'); box.className = 'dbg';
-    const mk = (t, f) => { const b = document.createElement('button'); b.textContent = t; b.addEventListener('click', f); return b; };
-    const flip = (k, a, b) => { DBG[k] = DBG[k] === a ? b : a; try { localStorage.setItem(DBG_KEY, JSON.stringify(DBG)); } catch (e) {} location.reload(); };
-    const bVia = mk('', () => flip('via', 'direct', 'player')), bLat = mk('', () => flip('lat', 'playback', '')), info = document.createElement('p'); info.className = 'dbg-info';
-    let min = false;
-    const bHide = mk('', () => { min = !min; draw(); });
-    const draw = () => {
-      bVia.textContent = '出力: ' + (DBG.via === 'direct' ? '直接' : 'プレーヤー経由');
-      bLat.textContent = '遅延: ' + (DBG.lat === 'playback' ? '余裕' : '標準');
-      bHide.textContent = min ? 'debug' : '隠す';
-      bVia.hidden = bLat.hidden = info.hidden = min; box.classList.toggle('min', min);
-      if (!min) {
-        const f = v => typeof v === 'number' ? v.toFixed(4) : '-';
-        info.textContent = ac ? `baseLatency ${f(ac.baseLatency)}
-outputLatency ${f(ac.outputLatency)}
-sampleRate ${ac.sampleRate}
-状態 ${ac.state} / ${outVia}` : '（音はまだ始まっていません）';
-      }
-    };
-    box.append(bVia, bLat, info, bHide); $('#stage').append(box); draw();
-    setInterval(() => { if (!min && !document.hidden) draw(); }, 1000);
-  }
 
   // 窓やダイアログを初めて開くときは、配置や文字の準備で画面が一瞬止まる。音が鳴り出す前の待機画面のうちに、一つずつ先に済ませておく
   // （同じ処理の中で開いて閉じるので、画面には一瞬も出ない）
