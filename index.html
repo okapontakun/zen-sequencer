@@ -155,6 +155,8 @@
     display:flex;flex-direction:column;gap:16px;align-items:center;text-align:center}
   .dlg .pix{width:36px;height:36px;color:var(--sel)}
   .dlg p{margin:0;font-family:var(--font-read);font-size:20px;line-height:1.7;white-space:pre-line}
+  .copy-msg{min-height:1.4em;margin:0;text-align:center;color:var(--sel);font-size:18px;opacity:0;transition:opacity .35s}
+  .copy-msg.on{opacity:1}
   .pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}
   /* タイマーの画面：時間・分・秒をプルダウンで選ぶ。動いている間は残り時間を大きく出す */
   .tmr-set{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;width:100%}
@@ -167,7 +169,7 @@
   .wbtn.yes{background:var(--sel);color:var(--ink);border-color:#fff3c4}
   /* 2つ・3つ並びのボタンは、狭い画面で「やわら／か」のように途中で折り返さないよう、画面幅に合わせて文字を少し縮める */
   .tri .wbtn{padding:0 2px;white-space:nowrap;font-size:min(20px,4.6vw)}
-  .pair .wbtn{padding:0 2px;white-space:nowrap;font-size:min(20px,4vw)}
+  .pair .wbtn{padding:0 2px;white-space:nowrap;font-size:min(20px,4vw);transition:background .35s,color .35s,border-color .35s}
 
   .title-card{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;pointer-events:none;text-align:center;transition:opacity .6s steps(4)}
   .title-card.gone{opacity:0}
@@ -398,6 +400,7 @@
               <h3>他の人に渡す</h3>
               <p class="w-note">今の玉の配置と設定（キー・音階・速さ・流れ・音色・基準の高さ・リバーブ・ディレイ）を、リンクかコードにして渡せます。音量・ノイズ・音質・見え方・星の玉の出やすさは、受け取る人の設定のままです。</p>
               <div class="pair"><button class="wbtn" id="copyLink">リンクをコピー</button><button class="wbtn" id="copyCode">コードをコピー</button></div>
+              <p class="copy-msg" id="copyMsg" role="status" aria-live="polite"></p>
               <textarea class="code" id="codeOut" rows="4" readonly aria-label="共有するリンクまたはコード"></textarea>
               <h3>受け取ったデータを読み込む</h3>
               <textarea class="code" id="codeIn" rows="4" placeholder="リンクかコードを貼り付け" aria-label="読み込むリンクまたはコード"></textarea>
@@ -2513,15 +2516,32 @@
     say('データを読み込みました');
   }
   const codeOut = $('#codeOut'), codeIn = $('#codeIn');
-  function copyText(text) {
+  const copyMsg = $('#copyMsg');
+  let copyMsgTimer = 0;
+  const copyBtns = [$('#copyLink'), $('#copyCode')];
+  // コピーできたボタンは、メッセージが消えるまで黄色にする
+  function copySay(text, ms, btn) {
+    clearTimeout(copyMsgTimer);
+    copyMsg.classList.remove('on');
+    copyBtns.forEach(b => b.classList.remove('yes'));
+    void copyMsg.offsetWidth;
+    copyMsg.textContent = text;
+    copyMsg.classList.add('on');
+    if (btn) btn.classList.add('yes');
+    copyMsgTimer = setTimeout(() => {
+      copyMsg.classList.remove('on');
+      copyBtns.forEach(b => b.classList.remove('yes'));
+    }, ms || 1800);
+  }
+  function copyText(text, btn) {
     codeOut.value = text;
-    const fallback = () => { codeOut.focus(); codeOut.select(); say('文字を選択したので、コピーしてください', 3200); };
+    const fallback = () => { codeOut.focus(); codeOut.select(); copySay('文字を選択したので、コピーしてください', 3200); };
     try {
-      navigator.clipboard.writeText(text).then(() => say('コピーしました'), fallback);
+      navigator.clipboard.writeText(text).then(() => copySay('コピーしました', 0, btn), fallback);
     } catch (e) { fallback(); }
   }
-  $('#copyLink').addEventListener('click', () => { if (!SHARE_BASE) say('ファイルで開いているので、コードをコピーします', 2400); copyText(shareText()); });
-  $('#copyCode').addEventListener('click', () => copyText(encodeShare()));
+  $('#copyLink').addEventListener('click', e => { if (!SHARE_BASE) copySay('ファイルで開いているので、コードをコピーします', 2400); copyText(shareText(), e.currentTarget); });
+  $('#copyCode').addEventListener('click', e => copyText(encodeShare(), e.currentTarget));
   $('#importBtn').addEventListener('click', () => {
     const d = decodeShare(codeIn.value);
     if (!d) { say('読み込めませんでした。リンクかコードを確認してください', 3200); return; }
