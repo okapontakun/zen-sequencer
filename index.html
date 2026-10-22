@@ -157,6 +157,8 @@
   .dlg p{margin:0;font-family:var(--font-read);font-size:20px;line-height:1.7;white-space:pre-line}
   .copy-msg{min-height:1.4em;margin:0;text-align:center;color:var(--sel);font-size:18px;opacity:0;transition:opacity .35s}
   .copy-msg.on{opacity:1}
+  .dlg.one .pair{grid-template-columns:1fr}
+  .dlg.one #dlgNo{display:none}
   .pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}
   /* タイマーの画面：時間・分・秒をプルダウンで選ぶ。動いている間は残り時間を大きく出す */
   .tmr-set{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;width:100%}
@@ -216,7 +218,6 @@
   .key.b.on::before{bottom:7px}
   .key.b.on{box-shadow:inset 0 0 0 3px #0b0f2a}
   .key.root::after{content:"";position:absolute;left:50%;top:5px;width:6px;height:6px;margin-left:-3px;background:#0b0f2a;box-shadow:0 0 0 2px #fff3c4}
-  .w-count{font-size:18px;color:var(--dim);text-align:right}
   .tri{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
   .meter{display:grid;grid-template-columns:42px minmax(0,1fr) 42px;gap:8px;align-items:center}
   .meter > button{height:42px;border:3px solid var(--line);border-radius:4px;display:grid;place-items:center}
@@ -398,7 +399,7 @@
           <div class="win-body">
             <section>
               <h3>他の人に渡す</h3>
-              <p class="w-note">今の玉の配置と設定（キー・音階・速さ・流れ・音色・基準の高さ・リバーブ・ディレイ）を、リンクかコードにして渡せます。音量・ノイズ・音質・見え方・星の玉の出やすさは、受け取る人の設定のままです。</p>
+              <p class="w-note">今の玉の配置と設定（キー・音階・速さ・流れ・音色・基準の高さ・リバーブ・ディレイ・音の選ばれ方）を、リンクかコードにして渡せます。音量・ノイズ・音質・見え方・星の玉の出やすさは、受け取る人の設定のままです。</p>
               <div class="pair"><button class="wbtn" id="copyLink">リンクをコピー</button><button class="wbtn" id="copyCode">コードをコピー</button></div>
               <p class="copy-msg" id="copyMsg" role="status" aria-live="polite"></p>
               <textarea class="code" id="codeOut" rows="4" readonly aria-label="共有するリンクまたはコード"></textarea>
@@ -426,13 +427,15 @@
               <select class="sel" id="scaleSel" aria-label="音階"></select>
               <div class="uses" id="uses"></div>
               <h3>鍵盤で選ぶ</h3>
-              <p class="w-note">色の付いた鍵盤の音だけを使います。左の「高・中・低」で、その段をまとめて切り替えられます。</p>
+              <p class="w-note">色のついた鍵盤だけを使います。</p>
               <div id="keys" style="display:flex;flex-direction:column;gap:8px"></div>
-              <div class="w-count" id="count"></div>
               <h3>星の玉の出やすさ</h3>
               <p class="w-note">タップしたとき星の玉が出る確率を変更できます。星の玉の音は鳴る度に色のついた鍵盤の中からランダムで選ばれます。</p>
               <div class="meter" id="mQ"></div>
               <div class="meter-val" id="vQ"></div>
+              <h3>音の選ばれ方</h3>
+              <p class="w-note">「固定」では、玉は一番低い音で置かれ、玉をタップするたびに音が1つずつ上がります。PCでは右クリックで1つ下がります（星の玉は出ません）。</p>
+              <div class="pair" id="pickMode"><button class="wbtn" data-pick="rand">ランダム</button><button class="wbtn" data-pick="fix">固定</button></div>
             </section>
             <section data-panel="sound" hidden>
               <h3>玉の音量</h3>
@@ -661,7 +664,7 @@
 
   // ================= state =================
   const S = {root:0, scaleKey:'m9', lastKey:'m9', speed:9, vol:8, rev:6, dly:4, q:2, pattern:['R','D','L','U'],
-             voice:'soft', tune:'440', eq:[0,0,0,0,0], tame:5, cvd:false, wn:0, pn:0, lite:false};
+             voice:'soft', tune:'440', eq:[0,0,0,0,0], tame:5, cvd:false, wn:0, pn:0, lite:false, pick:'rand'};
   const enabled = new Array(COUNT).fill(false);
   let POOL = [], notes = [], tool = 'draw';
   const mkNote = (x, y, midi, q) => ({x:clamp01(x), y:clamp01(y), midi, q:!!q, pulse:0, glow:0, ringAge:9, pop:0, ph:Math.random() * 6.283, tilt:Math.random() * Math.PI * 0.4, held:false});   // tilt：星の向き（保存・共有はしない）
@@ -672,6 +675,12 @@
   }
   function rebuildPool() { POOL = []; for (let i = 0; i < COUNT; i++) if (enabled[i]) POOL.push(LOW + i); }
   const randPitch = () => POOL[Math.floor(Math.random() * POOL.length)];
+  // 音の選ばれ方「固定」：置くときは使う音で一番低い音。タップで使う音を1つずつ上げ、一番上の次は一番低い音に戻る
+  const isFixed = () => S.pick === 'fix';
+  const lowPitch = () => POOL[0];
+  const nextPitch = m => { for (const v of POOL) if (v > m) return v; return POOL[0]; };
+  const prevPitch = m => { for (let i = POOL.length - 1; i >= 0; i--) if (POOL[i] < m) return POOL[i]; return POOL[POOL.length - 1]; };
+  const newPitch = () => isFixed() ? lowPitch() : randPitch();
   const countOn = () => enabled.filter(Boolean).length;
   const intIn = (v, a, b) => Number.isInteger(v) && v >= a && v <= b;
 
@@ -696,6 +705,7 @@
     if (intIn(d.tame, 0, 10)) S.tame = d.tame;
     if (typeof d.cvd === 'boolean') S.cvd = d.cvd;
     if (typeof d.lite === 'boolean') S.lite = d.lite;
+    if (d.pick === 'rand' || d.pick === 'fix') S.pick = d.pick;
     if (typeof d.en === 'string' && /^[01]{36}$/.test(d.en) && d.en.includes('1')) { for (let i = 0; i < COUNT; i++) enabled[i] = d.en[i] === '1'; }
     else fillFromScale();
     if (Array.isArray(d.notes)) {
@@ -708,7 +718,7 @@
   for (const n of notes) if (!enabled[n.midi - LOW]) n.midi = randPitch();
   let saveTimer = 0;
   const snapshot = () => ({root:S.root, scaleKey:S.scaleKey, lastKey:S.lastKey, speed2:S.speed, vol:S.vol, wn:S.wn, pn:S.pn, rev:S.rev, dly:S.dly, q:S.q, pattern:S.pattern,
-    voice:S.voice, tune:S.tune, eq:S.eq, tame:S.tame, cvd:S.cvd, lite:S.lite, en:enabled.map(v => v ? '1' : '0').join(''),
+    voice:S.voice, tune:S.tune, eq:S.eq, tame:S.tame, cvd:S.cvd, lite:S.lite, pick:S.pick, en:enabled.map(v => v ? '1' : '0').join(''),
     notes:notes.map(n => [+n.x.toFixed(4), +n.y.toFixed(4), n.midi, n.q ? 1 : 0])});
   function saveSoon() { clearTimeout(saveTimer); saveTimer = setTimeout(() => writeSaved(snapshot()), 300); }
   // iOSでは pagehide が来ないままタブが破棄されることがあるので、裏に回った時点でも保存する
@@ -1068,9 +1078,13 @@
     if (delaySec <= 0.005) flash(n); else pending.push({n, at:clock + delaySec});
   }
   // 玉をタップ：置いたときと同じように引き直す。設定の確率で星の玉に、そうでなければ別の音の玉になる
-  function retune(n) {
-    n.q = Math.random() < S.q / 10;
-    if (POOL.length > 1) { let m; do { m = randPitch(); } while (m === n.midi); n.midi = m; }
+  // down：固定のとき右クリックで1つ下げる（一番下の次は一番上）
+  function retune(n, down) {
+    if (isFixed()) { n.q = false; n.midi = down ? prevPitch(n.midi) : nextPitch(n.midi); }
+    else {
+      n.q = Math.random() < S.q / 10;
+      if (POOL.length > 1) { let m; do { m = randPitch(); } while (m === n.midi); n.midi = m; }
+    }
     n.pop = 1; sound(n); saveSoon();
   }
   function schedule(dt) {
@@ -1761,6 +1775,8 @@
     if (!helpWin.hidden || !settingsWin.hidden || !shareWin.hidden) { helpWin.hidden = true; settingsWin.hidden = true; shareWin.hidden = true; return; }
     ensureAudio();
     const p = toLocal(e);
+    // 固定のときの右クリック（PC）：玉の音を1つ下げる。玉のないところでは何もしない
+    if (e.button === 2 && isFixed() && tool !== 'erase') { const h = hit(p); if (h) { retune(h, true); haptic(5); disturb(ox(h), oy(h), radiusOf(h), oa(0.8)); } return; }
     try { cv.setPointerCapture(e.pointerId); } catch (err) {}
     if (tool === 'erase') { pointers.set(e.pointerId, {erase:true, x:p.x, y:p.y}); eraseAt(p); return; }
     let n = hit(p), isNew = false;
@@ -1768,7 +1784,7 @@
     if (!n) {
       if (f.nx < -0.02 || f.nx > 1.02 || f.ny < -0.02 || f.ny > 1.02) return;
       if (notes.length >= MAX_NOTES) { say('これ以上は浮かべられません'); return; }
-      n = mkNote(f.nx, f.ny, randPitch(), Math.random() < S.q / 10);
+      n = mkNote(f.nx, f.ny, newPitch(), !isFixed() && Math.random() < S.q / 10);
       notes.push(n); sound(n); haptic(8); isNew = true; saveSoon();
       disturb(p.x, p.y, 12, oa(3));
     } else disturb(ox(n), oy(n), radiusOf(n), oa(0.8));
@@ -2088,9 +2104,17 @@
   msgEl.addEventListener('click', () => { msgEl.hidden = true; });
   const dlg = $('#dlg'), dlgText = $('#dlgText'), dlgIcon = $('#dlgIcon');
   let dlgAction = null;
+  const dlgBox = $('.dlg', dlg), dlgYes = $('#dlgYes');
   function confirmAsk(icon, text, action) {
+    dlgBox.classList.remove('one'); dlgYes.textContent = 'はい';
     dlgIcon.innerHTML = pix(icon); dlgText.textContent = text; dlgAction = action;
     dlg.hidden = false; $('#dlgNo').focus();
+  }
+  // ボタンが「OK」だけのお知らせ
+  function noticeAsk(icon, text) {
+    dlgBox.classList.add('one'); dlgYes.textContent = 'OK';
+    dlgIcon.innerHTML = pix(icon); dlgText.textContent = text; dlgAction = null;
+    dlg.hidden = false; dlgYes.focus();
   }
   function closeDlg() { dlg.hidden = true; dlgAction = null; }
   $('#dlgNo').addEventListener('click', closeDlg);
@@ -2098,6 +2122,7 @@
   dlg.addEventListener('click', e => { if (e.target === dlg) closeDlg(); });
 
   $('#reroll').addEventListener('click', () => {
+    if (isFixed()) { noticeAsk('dice', '固定モードのため\n振り直しができません'); return; }
     if (!notes.length) { say('まだ玉が浮かんでいません'); return; }
     confirmAsk('dice', '浮かんでいる音の玉を\nすべて振り直しますか？', () => {
       for (const n of notes) { n.midi = randPitch(); n.q = Math.random() < S.q / 10; n.pop = 1; disturb(ox(n), oy(n), radiusOf(n), oaAll(1.5)); }
@@ -2301,7 +2326,6 @@
     };
     keysEl.innerHTML = [2,1,0].map(oct => `<div class="kb-row"><button class="kb-oct" data-oct="${oct}" aria-label="${OCT[oct][1]}をまとめて切り替え">${OCT[oct][0]}</button>` +
       `<div class="kb">${WHITE.map(pc => key(oct, pc, 'w')).join('')}${BLACK_POS.map(([pc, pos]) => key(oct, pc, 'b', pos)).join('')}</div></div>`).join('');
-    $('#count').textContent = `${COUNT}音中 ${countOn()}音を使用中`;
   }
   function applyScale() {
     rebuildPool();
@@ -2420,6 +2444,11 @@
   const drawQ = meter($('#mQ'), 10, () => S.q, v => { S.q = v; }, () => { $('#vQ').textContent = `${S.q * 10}%`; });
 
   const voiceEl = $('#voice'), tuneEl = $('#tune');
+  const pickEl = $('#pickMode');
+  pickEl.addEventListener('click', e => {
+    const b = e.target.closest('[data-pick]'); if (!b || b.dataset.pick === S.pick) return;
+    S.pick = b.dataset.pick; renderToggles(); saveSoon(); haptic(4);
+  });
   const cvdEl = $('#cvdMode');
   cvdEl.addEventListener('click', e => {
     const b = e.target.closest('[data-cvd]'); if (!b) return;
@@ -2442,6 +2471,7 @@
   function renderToggles() {
     $$('[data-lite]', liteEl).forEach(b => b.setAttribute('aria-pressed', String((b.dataset.lite === 'on') === S.lite)));
     $$('[data-cvd]', cvdEl).forEach(b => b.setAttribute('aria-pressed', String((b.dataset.cvd === 'on') === S.cvd)));
+    $$('[data-pick]', pickEl).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pick === S.pick)));
     renderCvdScale();
     $$('[data-v]', voiceEl).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === S.voice)));
     $$('[data-t]', tuneEl).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.t === S.tune)));
@@ -2455,7 +2485,7 @@
     S.tune = b.dataset.t; renderToggles(); saveSoon(); preview();
   });
   // 設定の画面に出ている値をまとめた印。前に作ったときと同じなら、開くときに作り直さなくていい
-  const setSig = () => [S.root, S.scaleKey, S.vol, S.wn, S.pn, S.rev, S.dly, S.q, S.tame, S.cvd, S.lite, S.voice, S.tune, S.eq.join(), enabled.map(v => v ? 1 : 0).join('')].join('|');
+  const setSig = () => [S.root, S.scaleKey, S.vol, S.wn, S.pn, S.rev, S.dly, S.q, S.tame, S.cvd, S.lite, S.pick, S.voice, S.tune, S.eq.join(), enabled.map(v => v ? 1 : 0).join('')].join('|');
   let setShown = '';
   function renderSettings() { renderScale(); renderToggles(); drawVol(); drawRev(); drawDly(); drawWhite(); drawPink(); drawQ(); drawEq(); drawTame(); setShown = setSig(); }
 
@@ -2478,6 +2508,7 @@
       const x = Math.round(n.x * 65535), y = Math.round(n.y * 65535);
       b.push(x >> 8, x & 255, y >> 8, y & 255, (n.midi - LOW) | (n.q ? 64 : 0));
     }
+    if (isFixed()) b.push(1);   // 音の選ばれ方「固定」の印（玉のあとに足す。ないコードはランダム）
     return 'iy1.' + b64e(b);
   }
   function decodeShare(text) {
@@ -2501,11 +2532,12 @@
       ns.push([((b[p] << 8) | b[p + 1]) / 65535, ((b[p + 2] << 8) | b[p + 3]) / 65535, midi, !!(b[p + 4] & 64)]);
     }
     return {root, scaleKey:sk === 255 ? 'custom' : SCALE_IDS[sk], lastKey:SCALE_IDS[lk], en, speed:ver === 1 ? Math.round(speed * 19 / 9) : speed, rev, dly, q,
-            voice:vt & 1 ? 'chip' : 'soft', tune:TUNES[vt >> 1], pattern:pat.map(i => CYCLE[i]), notes:ns};
+            voice:vt & 1 ? 'chip' : 'soft', tune:TUNES[vt >> 1], pattern:pat.map(i => CYCLE[i]), notes:ns,
+            pick:b[p] === 1 ? 'fix' : 'rand'};
   }
   function applyShare(d) {
     Object.assign(S, {root:d.root, scaleKey:d.scaleKey, lastKey:d.lastKey, speed:d.speed, rev:d.rev, dly:d.dly,
-                      voice:d.voice, tune:d.tune, pattern:d.pattern});
+                      voice:d.voice, tune:d.tune, pattern:d.pattern, pick:d.pick});
     for (let i = 0; i < COUNT; i++) enabled[i] = d.en[i];
     rebuildPool();
     notes.forEach(n => fading.push({n, k:1}));
