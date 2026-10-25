@@ -257,6 +257,13 @@
   .standby canvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
   .standby.go{background:none;cursor:default}
   .standby.go p,.standby.go small{opacity:0;animation:none;transition:opacity .35s ease}
+  /* 言語の切り替え：音量の注意のすぐ下に、小さく暗めに並べる（選んでいる言語だけ少し明るく） */
+  .langs{position:relative;z-index:1;margin-top:18px;display:flex;justify-content:center;gap:4px}
+  .langs button{padding:6px 9px;font-size:15px;color:#4d5578;border-radius:3px}
+  .langs button[aria-pressed="true"]{color:#9aa4c8;text-shadow:0 0 8px rgba(140,170,255,.6)}
+  .standby.go .langs{opacity:0;pointer-events:none;transition:opacity .35s ease}
+  /* 中国語のときは、読ませる文章を中国語の字形のゴシック体にする */
+  :root:lang(zh){--font-read:system-ui,-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",sans-serif}
 
   /* ---------- ブラウン管フィルタ ---------- */
   .scan{position:absolute;inset:0;z-index:8;pointer-events:none;background:linear-gradient(to bottom,transparent 0 58%,rgba(0,0,0,.38) 58% 100%);background-size:100% 3px}
@@ -318,36 +325,36 @@
   <div class="bezel">
     <div class="crt fxm bin" id="crt">
       <div class="stage" id="stage">
-        <canvas id="cv" aria-label="音の玉を浮かべる夜の池。光の線が通ると音が鳴ります"></canvas>
+        <canvas id="cv" aria-label="音の玉を浮かべる夜の池。光の線が通ると音が鳴ります" data-i18n-aria="cvAria"></canvas>
         <canvas id="bloom" aria-hidden="true"></canvas>
 
         <div class="hud-top" id="hudTop">
-          <span class="ttl">禅シーケンサー</span>
+          <span class="ttl" data-i18n="name">禅シーケンサー</span>
           <div class="tr">
-            <span class="erasing" id="erasing" hidden data-icon="eraser" aria-label="消すモード中"></span>
-            <button class="ib" id="helpBtn" data-icon="help" aria-label="遊び方"></button>
-            <button class="ib" id="gearBtn" data-icon="gear" aria-label="設定"></button>
-            <button class="ib" id="shareBtn" data-icon="share" aria-label="共有"></button>
+            <span class="erasing" id="erasing" hidden data-icon="eraser" aria-label="消すモード中" data-i18n-aria="erasing"></span>
+            <button class="ib" id="helpBtn" data-icon="help" aria-label="遊び方" data-i18n-aria="help"></button>
+            <button class="ib" id="gearBtn" data-icon="gear" aria-label="設定" data-i18n-aria="settings"></button>
+            <button class="ib" id="shareBtn" data-icon="share" aria-label="共有" data-i18n-aria="share"></button>
             <button class="ib" id="muteBtn" aria-pressed="false" aria-label="音を消す"><span class="i-on" data-icon="speaker"></span><span class="i-off" data-icon="speakerOff"></span></button>
           </div>
         </div>
 
         <div class="hud-bot" id="hudBot">
-          <div class="tiles" id="tiles" role="group" aria-label="光の流れる向き（4つの順番）"></div>
+          <div class="tiles" id="tiles" role="group" aria-label="光の流れる向き（4つの順番）" data-i18n-aria="tiles"></div>
           <div class="spdrow pop" id="spdPop" hidden>
-            <button class="ib" id="spDown" data-icon="turtle" aria-label="遅くする"></button>
-            <div class="hleds" id="spLeds" role="slider" tabindex="0" aria-label="速さ" aria-valuemin="1" aria-valuemax="20"></div>
-            <button class="ib" id="spUp" data-icon="rabbit" aria-label="速くする"></button>
+            <button class="ib" id="spDown" data-icon="turtle" aria-label="遅くする" data-i18n-aria="slower"></button>
+            <div class="hleds" id="spLeds" role="slider" tabindex="0" aria-label="速さ" data-i18n-aria="speed" aria-valuemin="1" aria-valuemax="20"></div>
+            <button class="ib" id="spUp" data-icon="rabbit" aria-label="速くする" data-i18n-aria="faster"></button>
           </div>
           <div class="ctrl">
             <div class="pad">
-              <div class="seg" id="toolSeg" data-mode="draw" role="radiogroup" aria-label="タップしたときの動作">
+              <div class="seg" id="toolSeg" data-mode="draw" role="radiogroup" aria-label="タップしたときの動作" data-i18n-aria="tool">
                 <span class="seg-thumb" aria-hidden="true"></span>
-                <button data-tool="draw" role="radio" aria-checked="true" data-icon="pencil" aria-label="置く"></button>
-                <button data-tool="erase" role="radio" aria-checked="false" data-icon="eraser" aria-label="消す"></button>
+                <button data-tool="draw" role="radio" aria-checked="true" data-icon="pencil" aria-label="置く" data-i18n-aria="draw"></button>
+                <button data-tool="erase" role="radio" aria-checked="false" data-icon="eraser" aria-label="消す" data-i18n-aria="erase"></button>
               </div>
-              <button class="ib" id="reroll" data-icon="dice" aria-label="すべての玉の音を振り直す"></button>
-              <button class="ib warn" id="clear" data-icon="trash" aria-label="すべての玉を消す"></button>
+              <button class="ib" id="reroll" data-icon="dice" aria-label="すべての玉の音を振り直す" data-i18n-aria="reroll"></button>
+              <button class="ib warn" id="clear" data-icon="trash" aria-label="すべての玉を消す" data-i18n-aria="clearAll"></button>
             </div>
             <div class="transport">
               <button class="play" id="play" aria-pressed="false" aria-label="再生">
@@ -355,13 +362,13 @@
               </button>
             </div>
             <div class="side">
-              <button class="ib" id="spdBtn" data-icon="rabbit" aria-pressed="false" aria-controls="spdPop" aria-label="速さを変える"></button>
+              <button class="ib" id="spdBtn" data-icon="rabbit" aria-pressed="false" aria-controls="spdPop" aria-label="速さを変える" data-i18n-aria="speedBtn"></button>
               <button class="ib" id="clockBtn" data-icon="clock" aria-pressed="false" aria-label="タイマー"></button>
             </div>
           </div>
         </div>
 
-        <div class="title-card" id="titleCard" hidden><h1>禅シーケンサー</h1><p>水面に音を浮かべて<br>光で鳴らそう</p></div>
+        <div class="title-card" id="titleCard" hidden><h1 data-i18n="name">禅シーケンサー</h1><p data-i18n-html="tagline">水面に音を浮かべて<br>光で鳴らそう</p></div>
         <div class="msg" id="msg" role="status" aria-live="polite" hidden></div>
         <audio id="outAudio" playsinline hidden></audio>
 
@@ -369,24 +376,24 @@
           <div class="dlg" role="alertdialog" aria-modal="true" aria-labelledby="dlgText">
             <span id="dlgIcon"></span>
             <p id="dlgText"></p>
-            <div class="pair"><button class="wbtn" id="dlgNo">いいえ</button><button class="wbtn yes" id="dlgYes">はい</button></div>
+            <div class="pair"><button class="wbtn" id="dlgNo" data-i18n="no">いいえ</button><button class="wbtn yes" id="dlgYes">はい</button></div>
           </div>
         </div>
 
         <div class="dlg-wrap" id="timerDlg" hidden>
-          <div class="dlg tmr" role="dialog" aria-modal="true" aria-label="タイマー">
+          <div class="dlg tmr" role="dialog" aria-modal="true" aria-label="タイマー" data-i18n-aria="timer">
             <div class="tmr-set" id="tmrSet">
-              <label><select class="sel" id="tmrH" aria-label="時間"></select>時間</label>
-              <label><select class="sel" id="tmrM" aria-label="分"></select>分</label>
-              <label><select class="sel" id="tmrS" aria-label="秒"></select>秒</label>
+              <label><select class="sel" id="tmrH" aria-label="時間" data-i18n-aria="hours"></select><span data-i18n="hours">時間</span></label>
+              <label><select class="sel" id="tmrM" aria-label="分" data-i18n-aria="minutes"></select><span data-i18n="minutes">分</span></label>
+              <label><select class="sel" id="tmrS" aria-label="秒" data-i18n-aria="seconds"></select><span data-i18n="seconds">秒</span></label>
             </div>
             <p class="tmr-left" id="tmrLeft" hidden></p>
-            <div class="pair"><button class="wbtn" id="tmrClose">閉じる</button><button class="wbtn yes" id="tmrGo">スタート</button></div>
+            <div class="pair"><button class="wbtn" id="tmrClose" data-i18n="close">閉じる</button><button class="wbtn yes" id="tmrGo">スタート</button></div>
           </div>
         </div>
 
         <div class="win" id="help" hidden>
-          <div class="win-head"><h2>遊び方</h2><button class="ib" data-close data-icon="close" aria-label="閉じる"></button></div>
+          <div class="win-head"><h2 data-i18n="help">遊び方</h2><button class="ib" data-close data-icon="close" aria-label="閉じる" data-i18n-aria="close"></button></div>
           <div class="win-rule"></div>
           <div class="win-body">
             <ul class="help" id="helpList"></ul>
@@ -394,86 +401,88 @@
         </div>
 
         <div class="win" id="share" hidden>
-          <div class="win-head"><h2>共有</h2><button class="ib" data-close data-icon="close" aria-label="閉じる"></button></div>
+          <div class="win-head"><h2 data-i18n="share">共有</h2><button class="ib" data-close data-icon="close" aria-label="閉じる" data-i18n-aria="close"></button></div>
           <div class="win-rule"></div>
           <div class="win-body">
             <section>
-              <h3>他の人に渡す</h3>
-              <p class="w-note">今の玉の配置と設定（キー・音階・速さ・流れ・音色・基準の高さ・リバーブ・ディレイ・音の選ばれ方）を、リンクかコードにして渡せます。音量・ノイズ・音質・見え方・星の玉の出やすさは、受け取る人の設定のままです。</p>
-              <div class="pair"><button class="wbtn" id="copyLink">リンクをコピー</button><button class="wbtn" id="copyCode">コードをコピー</button></div>
+              <h3 data-i18n="shareH">他の人に渡す</h3>
+              <p class="w-note" data-i18n="shareNote">今の玉の配置と設定（キー・音階・速さ・流れ・音色・基準の高さ・リバーブ・ディレイ・音の選ばれ方）を、リンクかコードにして渡せます。音量・ノイズ・音質・見え方・星の玉の出やすさは、受け取る人の設定のままです。</p>
+              <div class="pair"><button class="wbtn" id="copyLink" data-i18n="copyLink">リンクをコピー</button><button class="wbtn" id="copyCode" data-i18n="copyCode">コードをコピー</button></div>
               <p class="copy-msg" id="copyMsg" role="status" aria-live="polite"></p>
-              <textarea class="code" id="codeOut" rows="4" readonly aria-label="共有するリンクまたはコード"></textarea>
-              <h3>受け取ったデータを読み込む</h3>
-              <textarea class="code" id="codeIn" rows="4" placeholder="リンクかコードを貼り付け" aria-label="読み込むリンクまたはコード"></textarea>
-              <button class="wbtn" id="importBtn">読み込む</button>
+              <textarea class="code" id="codeOut" rows="4" readonly aria-label="共有するリンクまたはコード" data-i18n-aria="codeOut"></textarea>
+              <h3 data-i18n="importH">受け取ったデータを読み込む</h3>
+              <textarea class="code" id="codeIn" rows="4" placeholder="リンクかコードを貼り付け" data-i18n-ph="codeInPh" aria-label="読み込むリンクまたはコード" data-i18n-aria="codeIn"></textarea>
+              <button class="wbtn" id="importBtn" data-i18n="importBtn">読み込む</button>
             </section>
           </div>
         </div>
 
         <div class="win" id="settings" hidden>
           <div class="win-head" role="tablist">
-            <button role="tab" data-tab="scale" aria-selected="true" data-icon="clef" aria-label="音階" title="音階"></button>
-            <button role="tab" data-tab="sound" aria-selected="false" data-icon="speaker" aria-label="音" title="音"></button>
-            <button role="tab" data-tab="eq" aria-selected="false" data-icon="eqIcon" aria-label="音質" title="音質"></button>
-            <button role="tab" data-tab="view" aria-selected="false" data-icon="eye" aria-label="見え方" title="見え方"></button>
-            <button class="ib" data-close data-icon="close" aria-label="閉じる"></button>
+            <button role="tab" data-tab="scale" aria-selected="true" data-icon="clef" aria-label="音階" title="音階" data-i18n-aria="scale" data-i18n-title="scale"></button>
+            <button role="tab" data-tab="sound" aria-selected="false" data-icon="speaker" aria-label="音" title="音" data-i18n-aria="sound" data-i18n-title="sound"></button>
+            <button role="tab" data-tab="eq" aria-selected="false" data-icon="eqIcon" aria-label="音質" title="音質" data-i18n-aria="eqTab" data-i18n-title="eqTab"></button>
+            <button role="tab" data-tab="view" aria-selected="false" data-icon="eye" aria-label="見え方" title="見え方" data-i18n-aria="view" data-i18n-title="view"></button>
+            <button class="ib" data-close data-icon="close" aria-label="閉じる" data-i18n-aria="close"></button>
           </div>
           <div class="win-rule"></div>
           <div class="win-body" id="setBody">
             <section data-panel="scale">
-              <h3>キー</h3>
-              <select class="sel" id="rootSel" aria-label="キー"></select>
-              <h3>音階</h3>
-              <select class="sel" id="scaleSel" aria-label="音階"></select>
+              <h3 data-i18n="key">キー</h3>
+              <select class="sel" id="rootSel" aria-label="キー" data-i18n-aria="key"></select>
+              <h3 data-i18n="scale">音階</h3>
+              <select class="sel" id="scaleSel" aria-label="音階" data-i18n-aria="scale"></select>
               <div class="uses" id="uses"></div>
-              <h3>鍵盤で選ぶ</h3>
-              <p class="w-note">色のついた鍵盤だけを使います。</p>
+              <h3 data-i18n="keysH">鍵盤で選ぶ</h3>
+              <p class="w-note" data-i18n="keysNote">色のついた鍵盤だけを使います。</p>
               <div id="keys" style="display:flex;flex-direction:column;gap:8px"></div>
-              <h3>星の玉の出やすさ</h3>
-              <p class="w-note">タップしたとき星の玉が出る確率を変更できます。星の玉の音は鳴る度に色のついた鍵盤の中からランダムで選ばれます。</p>
+              <h3 data-i18n="starH">星の玉の出やすさ</h3>
+              <p class="w-note" data-i18n="starNote">タップしたとき星の玉が出る確率を変更できます。星の玉の音は鳴る度に色のついた鍵盤の中からランダムで選ばれます。</p>
               <div class="meter" id="mQ"></div>
               <div class="meter-val" id="vQ"></div>
-              <h3>音の選ばれ方</h3>
-              <p class="w-note">「固定」では、玉は一番低い音で置かれ、玉をタップするたびに音が1つずつ上がります。PCでは右クリックで1つ下がります（星の玉は出ません）。</p>
-              <div class="pair" id="pickMode"><button class="wbtn" data-pick="rand">ランダム</button><button class="wbtn" data-pick="fix">固定</button></div>
+              <h3 data-i18n="pickH">音の選ばれ方</h3>
+              <p class="w-note" data-i18n="pickNote">「固定」では、玉は一番低い音で置かれ、玉をタップするたびに音が1つずつ上がります。PCでは右クリックで1つ下がります（星の玉は出ません）。</p>
+              <div class="pair" id="pickMode"><button class="wbtn" data-pick="rand" data-i18n="rand">ランダム</button><button class="wbtn" data-pick="fix" data-i18n="fix">固定</button></div>
             </section>
             <section data-panel="sound" hidden>
-              <h3>玉の音量</h3>
+              <h3 data-i18n="volH">玉の音量</h3>
               <div class="meter" id="mVol"></div>
-              <h3>音色</h3>
-              <div class="pair" id="voice"><button class="wbtn" data-v="soft">やわらか</button><button class="wbtn" data-v="chip">ピコピコ</button></div>
-              <h3>基準の高さ</h3>
+              <h3 data-i18n="voiceH">音色</h3>
+              <div class="pair" id="voice"><button class="wbtn" data-v="soft" data-i18n="soft">やわらか</button><button class="wbtn" data-v="chip" data-i18n="chip">ピコピコ</button></div>
+              <h3 data-i18n="tuneH">基準の高さ</h3>
               <div class="tri" id="tune"><button class="wbtn" data-t="440">440Hz</button><button class="wbtn" data-t="432">432Hz</button><button class="wbtn" data-t="528">528Hz</button></div>
-              <h3>リバーブ</h3>
+              <h3 data-i18n="reverb">リバーブ</h3>
               <div class="meter" id="mReverb"></div>
-              <h3>ディレイ</h3>
+              <h3 data-i18n="delay">ディレイ</h3>
               <div class="meter" id="mDelay"></div>
-              <h3>ホワイトノイズ</h3>
-              <p class="w-note">「サー」という音をずっと流します。</p>
+              <h3 data-i18n="white">ホワイトノイズ</h3>
+              <p class="w-note" data-i18n="whiteNote">「サー」という音をずっと流します。</p>
               <div class="meter" id="mWhite"></div>
-              <h3>ピンクノイズ</h3>
-              <p class="w-note">雨音や波に近いノイズです。</p>
+              <h3 data-i18n="pink">ピンクノイズ</h3>
+              <p class="w-note" data-i18n="pinkNote">雨音や波に近いノイズです。</p>
               <div class="meter" id="mPink"></div>
             </section>
             <section data-panel="eq" hidden>
-              <h3>おすすめ</h3>
-              <div class="tri" id="eqPre"><button class="wbtn" data-p="flat">標準</button><button class="wbtn" data-p="soft">やわらか</button><button class="wbtn" data-p="clear">くっきり</button></div>
-              <h3>イコライザー</h3>
-              <p class="w-note">低い音から高い音まで、帯域ごとに強さを変えられます（ランプ1つ＝2dB）。上下になぞるか、ランプをタップしてください。</p>
+              <h3 data-i18n="presetH">おすすめ</h3>
+              <div class="tri" id="eqPre"><button class="wbtn" data-p="flat" data-i18n="eqFlat">標準</button><button class="wbtn" data-p="soft" data-i18n="soft">やわらか</button><button class="wbtn" data-p="clear" data-i18n="crisp">くっきり</button></div>
+              <h3 data-i18n="eqH">イコライザー</h3>
+              <p class="w-note" data-i18n="eqNote">低い音から高い音まで、帯域ごとに強さを変えられます（ランプ1つ＝2dB）。上下になぞるか、ランプをタップしてください。</p>
               <div class="eq" id="eq"></div>
-              <div class="eq-ends"><span>◀ 低い</span><span>高い ▶</span></div>
-              <h3>高い玉を抑える</h3>
-              <p class="w-note">高い音の玉ほど、音量と硬さを控えめにします。耳が疲れるときは上げてください。</p>
+              <div class="eq-ends"><span data-i18n="low">◀ 低い</span><span data-i18n="high">高い ▶</span></div>
+              <h3 data-i18n="tameH">高い玉を抑える</h3>
+              <p class="w-note" data-i18n="tameNote">高い音の玉ほど、音量と硬さを控えめにします。耳が疲れるときは上げてください。</p>
               <div class="meter" id="mTame"></div>
             </section>
             <section data-panel="view" hidden>
-              <h3>玉の色</h3>
-              <p class="w-note">「見分けやすい色」にすると、玉の色を音名に合わせて、Cに近いほど深い青、Bに近いほど明るい黄色で表します。</p>
-              <div class="pair" id="cvdMode"><button class="wbtn" data-cvd="off">標準</button><button class="wbtn" data-cvd="on">見分けやすい色</button></div>
+              <h3 data-i18n="langH">言語 / Language</h3>
+              <div class="tri" id="langSet"></div>
+              <h3 data-i18n="colorH">玉の色</h3>
+              <p class="w-note" data-i18n="colorNote">「見分けやすい色」にすると、玉の色を音名に合わせて、Cに近いほど深い青、Bに近いほど明るい黄色で表します。</p>
+              <div class="pair" id="cvdMode"><button class="wbtn" data-cvd="off" data-i18n="standard">標準</button><button class="wbtn" data-cvd="on" data-i18n="cvdOn">見分けやすい色</button></div>
               <div class="kb cvd-kb" id="cvdScale" aria-hidden="true"></div>
-              <h3>軽量モード</h3>
-              <p class="w-note">「軽量」にすると、動きのなめらかさや画面の細かさを少し控えめにして、電池の減りと発熱を抑えます。音は変わりません。</p>
-              <div class="pair" id="liteMode"><button class="wbtn" data-lite="off">標準</button><button class="wbtn" data-lite="on">軽量</button></div>
+              <h3 data-i18n="liteH">軽量モード</h3>
+              <p class="w-note" data-i18n="liteNote">「軽量」にすると、動きのなめらかさや画面の細かさを少し控えめにして、電池の減りと発熱を抑えます。音は変わりません。</p>
+              <div class="pair" id="liteMode"><button class="wbtn" data-lite="off" data-i18n="standard">標準</button><button class="wbtn" data-lite="on" data-i18n="liteOn">軽量</button></div>
             </section>
           </div>
         </div>
@@ -487,10 +496,11 @@
       <div class="glass" aria-hidden="true"></div>
       <div class="vig" aria-hidden="true"></div>
       <div class="crtfx" aria-hidden="true"></div>
-      <div class="standby" id="standby" role="button" tabindex="0" aria-label="はじめる">
+      <div class="standby" id="standby" role="button" tabindex="0" aria-label="はじめる" data-i18n-aria="start">
         <canvas id="veil" aria-hidden="true"></canvas>
-        <p>タップしてはじめる</p>
-        <small>音が出ます<br>音量にご注意ください</small>
+        <p data-i18n="tapStart">タップしてはじめる</p>
+        <small data-i18n-html="volWarn">音が出ます<br>音量にご注意ください</small>
+        <div class="langs" id="langTitle" role="group" aria-label="言語 / Language"></div>
       </div>
     </div>
   </div>
@@ -513,6 +523,154 @@
   let lastWritten = null;
   const writeSaved = v => { try { const s = JSON.stringify(v); if (s === lastWritten) return; localStorage.setItem(KEY, s); lastWritten = s; } catch (e) {} };
   const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+
+  // ================= ことば（日本語・英語・中国語簡体字） =================
+  // 言語は玉や設定とは別に覚える（共有データには含めない）。はじめて開いたときは、ブラウザの言語に合わせる
+  const LANG_KEY = 'zen-sequencer-lang', LANGS = ['ja', 'en', 'zh'];
+  const LANG_NAME = {ja:'日本語', en:'English', zh:'中文'};
+  let LANG = (() => {
+    try { const v = localStorage.getItem(LANG_KEY); if (LANGS.includes(v)) return v; } catch (e) {}
+    const n = String((navigator.languages && navigator.languages[0]) || navigator.language || '').toLowerCase();
+    return n.startsWith('ja') ? 'ja' : n.startsWith('zh') ? 'zh' : 'en';
+  })();
+  // [日本語, 英語, 中国語]。{0} {1} は差し込む値
+  const TEXT = {
+    name:['禅シーケンサー', 'Zen Sequencer', '禅音序器'],
+    cvAria:['音の玉を浮かべる夜の池。光の線が通ると音が鳴ります', 'A night pond with floating sound orbs. Orbs chime when the line of light passes.', '夜晚的池塘上漂浮着音球。光线经过时，音球就会发声'],
+    erasing:['消すモード中', 'Erase mode', '擦除模式'],
+    help:['遊び方', 'How to play', '玩法'],
+    settings:['設定', 'Settings', '设置'],
+    share:['共有', 'Share', '分享'],
+    mute:['音を消す', 'Mute', '静音'],
+    unmute:['音を戻す', 'Unmute', '取消静音'],
+    tiles:['光の流れる向き（4つの順番）', 'Light direction (4-step sequence)', '光的流动方向（4步顺序）'],
+    slower:['遅くする', 'Slower', '减速'],
+    speed:['速さ', 'Speed', '速度'],
+    faster:['速くする', 'Faster', '加速'],
+    tool:['タップしたときの動作', 'Tap action', '点击时的动作'],
+    draw:['置く', 'Place', '放置'],
+    erase:['消す', 'Erase', '擦除'],
+    reroll:['すべての玉の音を振り直す', 'Reroll the notes of all orbs', '重新随机所有音球的音'],
+    clearAll:['すべての玉を消す', 'Remove all orbs', '清除所有音球'],
+    play:['再生', 'Play', '播放'],
+    pause:['一時停止', 'Pause', '暂停'],
+    speedBtn:['速さを変える', 'Change speed', '调整速度'],
+    timer:['タイマー', 'Timer', '定时器'],
+    timerOn:['タイマー（動いています）', 'Timer (running)', '定时器（运行中）'],
+    tagline:['水面に音を浮かべて<br>光で鳴らそう', 'Float sounds on the water<br>and let the light play them', '让声音浮在水面<br>由光来奏响'],
+    no:['いいえ', 'No', '否'],
+    yes:['はい', 'Yes', '是'],
+    hours:['時間', 'hr', '小时'],
+    minutes:['分', 'min', '分钟'],
+    seconds:['秒', 'sec', '秒'],
+    close:['閉じる', 'Close', '关闭'],
+    timerStart:['スタート', 'Start', '开始'],
+    timerStop:['止める', 'Stop', '停止'],
+    shareH:['他の人に渡す', 'Share with others', '分享给他人'],
+    shareNote:['今の玉の配置と設定（キー・音階・速さ・流れ・音色・基準の高さ・リバーブ・ディレイ・音の選ばれ方）を、リンクかコードにして渡せます。音量・ノイズ・音質・見え方・星の玉の出やすさは、受け取る人の設定のままです。',
+      'Turn your current orb layout and settings (key, scale, speed, light direction, tone, reference pitch, reverb, delay, note selection) into a link or code to share. Volume, noise, EQ, display and star orb chance keep the receiver’s own settings.',
+      '可以把当前音球的布局和设置（调、音阶、速度、流向、音色、基准音高、混响、延迟、选音方式）转换成链接或代码分享。音量、噪音、音质、显示和星星音球出现率保持接收者自己的设置。'],
+    copyLink:['リンクをコピー', 'Copy link', '复制链接'],
+    copyCode:['コードをコピー', 'Copy code', '复制代码'],
+    codeOut:['共有するリンクまたはコード', 'Link or code to share', '要分享的链接或代码'],
+    importH:['受け取ったデータを読み込む', 'Load shared data', '导入收到的数据'],
+    codeInPh:['リンクかコードを貼り付け', 'Paste a link or code', '粘贴链接或代码'],
+    codeIn:['読み込むリンクまたはコード', 'Link or code to load', '要导入的链接或代码'],
+    importBtn:['読み込む', 'Load', '导入'],
+    scale:['音階', 'Scale', '音阶'],
+    sound:['音', 'Sound', '声音'],
+    eqTab:['音質', 'EQ', '音质'],
+    view:['見え方', 'Display', '显示'],
+    key:['キー', 'Key', '调'],
+    keysH:['鍵盤で選ぶ', 'Pick notes on the keyboard', '在琴键上选择'],
+    keysNote:['色のついた鍵盤だけを使います。', 'Only the colored keys are used.', '只使用有颜色的琴键。'],
+    starH:['星の玉の出やすさ', 'Star orb chance', '星星音球出现率'],
+    starNote:['タップしたとき星の玉が出る確率を変更できます。星の玉の音は鳴る度に色のついた鍵盤の中からランダムで選ばれます。',
+      'Change how often a star orb appears when you tap. Each time a star orb sounds, its note is picked at random from the colored keys.',
+      '可以改变点击时出现星星音球的概率。星星音球每次发声时，会从有颜色的琴键中随机选择音。'],
+    pickH:['音の選ばれ方', 'Note selection', '选音方式'],
+    pickNote:['「固定」では、玉は一番低い音で置かれ、玉をタップするたびに音が1つずつ上がります。PCでは右クリックで1つ下がります（星の玉は出ません）。',
+      'In “Fixed” mode, new orbs start on the lowest note, and each tap on an orb moves it up one note. On PC, right-click moves it down one. Star orbs don’t appear in this mode.',
+      '在“固定”模式下，音球以最低音放置，每次点击音球会升高一个音。在电脑上右键单击会降低一个音（不会出现星星音球）。'],
+    rand:['ランダム', 'Random', '随机'],
+    fix:['固定', 'Fixed', '固定'],
+    volH:['玉の音量', 'Orb volume', '音球音量'],
+    voiceH:['音色', 'Tone', '音色'],
+    soft:['やわらか', 'Soft', '柔和'],
+    chip:['ピコピコ', 'Chiptune', '8比特'],
+    tuneH:['基準の高さ', 'Reference pitch', '基准音高'],
+    reverb:['リバーブ', 'Reverb', '混响'],
+    delay:['ディレイ', 'Delay', '延迟'],
+    white:['ホワイトノイズ', 'White noise', '白噪音'],
+    whiteNote:['「サー」という音をずっと流します。', 'Plays a steady “shhh” sound.', '持续播放“沙沙”声。'],
+    pink:['ピンクノイズ', 'Pink noise', '粉红噪音'],
+    pinkNote:['雨音や波に近いノイズです。', 'A softer noise, like rain or waves.', '接近雨声或海浪的噪音。'],
+    presetH:['おすすめ', 'Presets', '推荐'],
+    standard:['標準', 'Standard', '标准'],
+    eqFlat:['標準', 'Flat', '标准'],
+    crisp:['くっきり', 'Crisp', '清晰'],
+    eqH:['イコライザー', 'Equalizer', '均衡器'],
+    eqNote:['低い音から高い音まで、帯域ごとに強さを変えられます（ランプ1つ＝2dB）。上下になぞるか、ランプをタップしてください。',
+      'Adjust the level of each frequency band, low to high (1 lamp = 2 dB). Swipe up or down, or tap the lamps.',
+      '可以从低音到高音按频段调整强度（1格＝2dB）。请上下滑动或点击灯格。'],
+    low:['◀ 低い', '◀ Low', '◀ 低'],
+    high:['高い ▶', 'High ▶', '高 ▶'],
+    tameH:['高い玉を抑える', 'Soften high orbs', '柔化高音球'],
+    tameNote:['高い音の玉ほど、音量と硬さを控えめにします。耳が疲れるときは上げてください。',
+      'The higher an orb’s note, the quieter and gentler it plays. Turn this up if your ears get tired.',
+      '音越高的音球，音量越小、音色越柔和。耳朵疲劳时请调高。'],
+    langH:['言語 / Language', 'Language', '语言 / Language'],
+    colorH:['玉の色', 'Orb colors', '音球颜色'],
+    colorNote:['「見分けやすい色」にすると、玉の色を音名に合わせて、Cに近いほど深い青、Bに近いほど明るい黄色で表します。',
+      '“Colorblind-safe” colors orbs by note name, from deep blue at C to bright yellow at B.',
+      '选择“易分辨颜色”后，音球颜色会与音名对应：越接近C越深蓝，越接近B越亮黄。'],
+    cvdOn:['見分けやすい色', 'Colorblind-safe', '易分辨颜色'],
+    liteH:['軽量モード', 'Lite mode', '轻量模式'],
+    liteNote:['「軽量」にすると、動きのなめらかさや画面の細かさを少し控えめにして、電池の減りと発熱を抑えます。音は変わりません。',
+      '“Lite” slightly reduces motion smoothness and screen detail to save battery and reduce heat. The sound stays the same.',
+      '选择“轻量”后，会稍微降低动画流畅度和画面精细度，以减少耗电和发热。声音不变。'],
+    liteOn:['軽量', 'Lite', '轻量'],
+    start:['はじめる', 'Start', '开始'],
+    tapStart:['タップしてはじめる', 'Tap to start', '点击开始'],
+    volWarn:['音が出ます<br>音量にご注意ください', 'Sound will play<br>Please check your volume', '将会发出声音<br>请注意音量'],
+    preparing:['準備中…', 'Loading…', '加载中…'],
+    full:['これ以上は浮かべられません', 'No room for more orbs', '无法再放置更多音球'],
+    noAudio:['この端末・ブラウザでは音を鳴らせません', 'Sound can’t play on this device or browser', '此设备或浏览器无法播放声音'],
+    tileAria:['{0}番目：{1}。タップで向きを変える', 'Step {0}: {1}. Tap to change direction', '第{0}步：{1}。点击切换方向'],
+    dirR:['右へ', 'Right', '向右'], dirL:['左へ', 'Left', '向左'], dirU:['上へ', 'Up', '向上'], dirD:['下へ', 'Down', '向下'], 'dir?':['ランダム', 'Random', '随机'],
+    fixedNoReroll:['固定モードのため\n振り直しができません', 'Can’t reroll\nin Fixed mode', '固定模式下\n无法重新随机'],
+    noOrbsYet:['まだ玉が浮かんでいません', 'No orbs yet', '还没有音球'],
+    rerollAsk:['浮かんでいる音の玉を\nすべて振り直しますか？', 'Reroll the notes\nof all orbs?', '要重新随机\n所有音球的音吗？'],
+    noOrbs:['玉は浮かんでいません', 'No orbs to remove', '没有音球'],
+    clearAsk:['浮かんでいる音の玉を\nすべて消しますか？', 'Remove\nall orbs?', '要清除\n所有音球吗？'],
+    pickTime:['時間を選んでください', 'Set a time first', '请选择时间'],
+    custom:['カスタム（鍵盤で選んだ音）', 'Custom (picked notes)', '自定义（在琴键上选择的音）'],
+    uses:['使う音：', 'Notes: ', '使用音：'],
+    octLo:['低', 'L', '低'], octMid:['中', 'M', '中'], octHi:['高', 'H', '高'],
+    octToggle:['{0}をまとめて切り替え', 'Toggle all {0}', '一键切换所有{0}'],
+    octLoName:['低い音', 'low notes', '低音'], octMidName:['中くらいの音', 'middle notes', '中音'], octHiName:['高い音', 'high notes', '高音'],
+    lastNote:['最後の1音は残します', 'Keep at least one note', '至少保留一个音'],
+    less:['減らす', 'Decrease', '减少'],
+    more:['増やす', 'Increase', '增加'],
+    loaded:['データを読み込みました', 'Data loaded', '已导入数据'],
+    selectToCopy:['文字を選択したので、コピーしてください', 'Text selected. Please copy it manually', '已选中文本，请复制'],
+    copied:['コピーしました', 'Copied', '已复制'],
+    fileCode:['ファイルで開いているので、コードをコピーします', 'Opened as a local file, so the code was copied instead', '以文件方式打开，将复制代码'],
+    loadFail:['読み込めませんでした。リンクかコードを確認してください', 'Couldn’t load. Please check the link or code', '无法导入。请检查链接或代码'],
+    loadAsk:['このデータを読み込みますか？今の玉と設定は置き換わります。', 'Load this data?\nYour current orbs and settings will be replaced.', '要导入此数据吗？\n当前的音球和设置将被替换。'],
+    sharedAsk:['共有されたデータを読み込みますか？今の玉と設定は置き換わります。', 'Load the shared data?\nYour current orbs and settings will be replaced.', '要导入分享的数据吗？\n当前的音球和设置将被替换。']
+  };
+  const t = (k, ...a) => { const r = TEXT[k]; const s = r[LANGS.indexOf(LANG)] ?? r[0]; return a.length ? s.replace(/\{(\d)\}/g, (_, i) => a[i]) : s; };
+  // 画面に書いてある文字を、今の言語に入れ替える（data-i18n＝文字、-html＝改行入り、-aria＝読み上げ名、-title＝ヒント、-ph＝入力欄の薄い字）
+  function applyStaticText() {
+    document.documentElement.lang = LANG === 'zh' ? 'zh-Hans' : LANG;
+    document.title = t('name');
+    $$('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+    $$('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });
+    $$('[data-i18n-aria]').forEach(el => el.setAttribute('aria-label', t(el.dataset.i18nAria)));
+    $$('[data-i18n-title]').forEach(el => el.setAttribute('title', t(el.dataset.i18nTitle)));
+    $$('[data-i18n-ph]').forEach(el => el.setAttribute('placeholder', t(el.dataset.i18nPh)));
+  }
 
   // ================= ドット絵アイコン（12×12） =================
   const ICONS = {
@@ -632,33 +790,43 @@
 
   // ヒーリング・アンビエント・瞑想音楽でよく使われる音のあつまり（ルートからの半音数）
   const SCALE_GROUPS = [
-    ['和音（コード）', [
+    [['和音（コード）', 'Chords', '和弦'], [
       ['sus2','sus2',[0,2,7]], ['sus4','sus4',[0,5,7]], ['sus4_9','sus4(9)',[0,2,5,7]], ['s7sus4','7sus4',[0,5,7,10]],
       ['add9','add9',[0,2,4,7]], ['six9','6/9',[0,2,4,7,9]], ['maj7','メジャー7',[0,4,7,11]], ['maj9','メジャー9',[0,2,4,7,11]],
       ['maj7s11','メジャー7(#11)',[0,4,6,7,11]], ['m7','マイナー7',[0,3,7,10]], ['m9','マイナー9',[0,2,3,7,10]], ['m11','マイナー11',[0,2,3,5,7,10]]]],
-    ['4度・5度の積み重ね', [
+    [['4度・5度の積み重ね', 'Stacked 4ths & 5ths', '四度·五度叠置'], [
       ['q3','4度積み（3音）',[0,5,10]], ['q4','4度積み（4音）',[0,3,5,10]], ['q5','4度積み（5音）',[0,3,5,8,10]], ['f4','5度積み（4音）',[0,2,7,9]]]],
-    ['ペンタトニック', [
+    [['ペンタトニック', 'Pentatonic', '五声音阶'], [
       ['Mpent','メジャー・ペンタトニック',[0,2,4,7,9]], ['mpent','マイナー・ペンタトニック',[0,3,5,7,10]], ['spent','サスペンデッド・ペンタトニック',[0,2,5,7,10]]]],
-    ['教会旋法', [
+    [['教会旋法', 'Church modes', '教会调式'], [
       ['ionian','アイオニアン（メジャー）',[0,2,4,5,7,9,11]], ['dorian','ドリアン',[0,2,3,5,7,9,10]], ['lydian','リディアン',[0,2,4,6,7,9,11]],
       ['mixo','ミクソリディアン',[0,2,4,5,7,9,10]], ['aeolian','エオリアン（ナチュラルマイナー）',[0,2,3,5,7,8,10]]]],
-    ['日本の音階', [
+    [['日本の音階', 'Japanese scales', '日本音阶'], [
       ['ritsu','律音階（陽旋法）',[0,2,5,7,9]], ['miyako','都節音階',[0,1,5,7,8]], ['insen','陰旋法',[0,1,5,7,10]],
       ['hira','平調子',[0,2,3,7,8]], ['kumoi','雲井調子',[0,2,3,7,9]], ['ryukyu','琉球音階',[0,4,5,7,11]]]],
-    ['ハンドパンの音階', [
+    [['ハンドパンの音階', 'Handpan scales', '手碟音阶'], [
       ['kurd','クルド',[0,2,3,5,7,8,10]], ['celtic','ケルティック・マイナー',[0,2,3,5,7,10]], ['integral','インテグラル',[0,2,3,7,8,10]],
       ['sabye','サビエ',[0,2,4,7,9,11]], ['aegean','エーゲ',[0,4,6,7,11]]]],
-    ['ただよう音', [
+    [['ただよう音', 'Floating sounds', '漂浮之音'], [
       ['whole','ホールトーン',[0,2,4,6,8,10]], ['pelog','ペロッグ風（ガムラン）',[0,1,3,7,8]], ['all','すべての音（半音階）',[0,1,2,3,4,5,6,7,8,9,10,11]]]]
   ];
   const SCALES = {};
   SCALE_GROUPS.forEach(([, list]) => list.forEach(([id, label, pcs]) => { SCALES[id] = {label, pcs}; }));
+  // 音階の名前の [英語, 中国語]。sus2 などのコード記号は、どの言語でも同じなので載せない
+  const SCALE_TR = {
+    maj7:['Major 7', '大七'], maj9:['Major 9', '大九'], maj7s11:['Major 7(#11)', '大七（#11）'], m7:['Minor 7', '小七'], m9:['Minor 9', '小九'], m11:['Minor 11', '小十一'],
+    q3:['Stacked 4ths (3 notes)', '四度叠置（3个音）'], q4:['Stacked 4ths (4 notes)', '四度叠置（4个音）'], q5:['Stacked 4ths (5 notes)', '四度叠置（5个音）'], f4:['Stacked 5ths (4 notes)', '五度叠置（4个音）'],
+    Mpent:['Major pentatonic', '大调五声音阶'], mpent:['Minor pentatonic', '小调五声音阶'], spent:['Suspended pentatonic', '挂留五声音阶'],
+    ionian:['Ionian (major)', '伊奥尼亚（大调）'], dorian:['Dorian', '多利亚'], lydian:['Lydian', '利底亚'], mixo:['Mixolydian', '混合利底亚'], aeolian:['Aeolian (natural minor)', '爱奥利亚（自然小调）'],
+    ritsu:['Ritsu (Yo scale)', '律音阶（阳旋法）'], miyako:['Miyako-bushi', '都节音阶'], insen:['Insen', '阴旋法'], hira:['Hirajoshi', '平调子'], kumoi:['Kumoi', '云井调子'], ryukyu:['Ryukyu', '琉球音阶'],
+    kurd:['Kurd', '库尔德'], celtic:['Celtic minor', '凯尔特小调'], integral:['Integral', 'Integral'], sabye:['Sabye', 'Sabye'], aegean:['Aegean', '爱琴海'],
+    whole:['Whole tone', '全音音阶'], pelog:['Pelog-like (gamelan)', '佩洛格风格（甘美兰）'], all:['Chromatic (all notes)', '所有音（半音阶）']
+  };
+  const scaleLabel = id => (LANG !== 'ja' && SCALE_TR[id] && SCALE_TR[id][LANG === 'en' ? 0 : 1]) || SCALES[id].label;
 
   const DIRS = {R:{ax:'x',from:0,to:1}, L:{ax:'x',from:1,to:0}, D:{ax:'y',from:0,to:1}, U:{ax:'y',from:1,to:0}};
   const CYCLE = ['R','D','L','U','?'];
   const DEG = {R:0, D:90, L:180, U:270};
-  const DIR_NAME = {R:'右へ', L:'左へ', U:'上へ', D:'下へ', '?':'ランダム'};
   const SPEED_STEPS = 20;   // ゲージの目盛り20個（1目盛り＝1段階）
   const periodOf = i => 30 * Math.pow(0.1, i / (SPEED_STEPS - 1));
 
@@ -1783,7 +1951,7 @@
     const f = toField(p);
     if (!n) {
       if (f.nx < -0.02 || f.nx > 1.02 || f.ny < -0.02 || f.ny > 1.02) return;
-      if (notes.length >= MAX_NOTES) { say('これ以上は浮かべられません'); return; }
+      if (notes.length >= MAX_NOTES) { say(t('full')); return; }
       n = mkNote(f.nx, f.ny, newPitch(), !isFixed() && Math.random() < S.q / 10);
       notes.push(n); sound(n); haptic(8); isNew = true; saveSoon();
       disturb(p.x, p.y, 12, oa(3));
@@ -1820,7 +1988,7 @@
   const muteBtn = $('#muteBtn');
   function renderMute() {
     muteBtn.setAttribute('aria-pressed', String(muted));
-    muteBtn.setAttribute('aria-label', muted ? '音を戻す' : '音を消す');
+    muteBtn.setAttribute('aria-label', t(muted ? 'unmute' : 'mute'));
   }
   function setMuted(on) {
     muted = on;
@@ -1871,7 +2039,7 @@
   // ロック画面やコントロールセンターに、曲名と再生／一時停止ボタンを出す
   if ('mediaSession' in navigator) {
     // 曲名や画像の設定に失敗しても、再生／一時停止のボタンは使えるように、別々に試す
-    try { navigator.mediaSession.metadata = new MediaMetadata({title:'禅シーケンサー', artwork:[{src:'icon-512.png', sizes:'512x512', type:'image/png'}]}); } catch (e) {}
+    try { navigator.mediaSession.metadata = new MediaMetadata({title:t('name'), artwork:[{src:'icon-512.png', sizes:'512x512', type:'image/png'}]}); } catch (e) {}
     try {
       navigator.mediaSession.setActionHandler('play', () => { ensureAudio(); wakeAudio(); setPlaying(true); });
       navigator.mediaSession.setActionHandler('pause', () => setPlaying(false));
@@ -1900,7 +2068,7 @@
     try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = on ? 'playing' : 'paused'; } catch (e) {}
     if (on && outVia === 'player' && outAudio.paused) outAudio.play().catch(() => {});
     playBtn.setAttribute('aria-pressed', String(on));
-    playBtn.setAttribute('aria-label', on ? '一時停止' : '再生');
+    playBtn.setAttribute('aria-label', t(on ? 'pause' : 'play'));
     if (on) armTimerFade();   // タイマーで小さくしたままの音量を戻す／止まっていた間のずれを直す
     syncBg();
   }
@@ -1989,7 +2157,7 @@
     standby.removeAttribute('role'); standby.removeAttribute('tabindex');
     // 音の準備に時間がかかるときだけ「準備中」と出す（すぐ終わるときはちらつかないよう出さない）
     const sp = standby.querySelector('p'), ss = standby.querySelector('small');
-    const loadTm = setTimeout(() => { sp.textContent = '準備中…'; ss.textContent = ''; }, 150);
+    const loadTm = setTimeout(() => { sp.textContent = t('preparing'); ss.textContent = ''; }, 150);
     // タップした位置（キーボードで始めたときは画面のまんなか）
     const r = crt.getBoundingClientRect();
     const byPointer = e && e.detail > 0 && Number.isFinite(e.clientX);
@@ -2003,7 +2171,7 @@
       setTimeout(() => { titleCard.hidden = false; }, reduceMotion ? 0 : 1600);
       // ボタン類は、まんなかの一滴から画面が明けはじめるのと同時に浮かび上がらせ、その時点から触れるようにする
       setTimeout(() => { stage.classList.remove('intro'); standby.style.pointerEvents = 'none'; }, reduceMotion ? 300 : 800);
-      if (!ac) setTimeout(() => say('この端末・ブラウザでは音を鳴らせません', 6000), 3300);
+      if (!ac) setTimeout(() => say(t('noAudio'), 6000), 3300);
       setTimeout(() => {
         titleCard.classList.add('gone'); setTimeout(() => { titleCard.hidden = true; }, 700);
         setPlaying(true);
@@ -2081,7 +2249,7 @@
       $('.g', b).innerHTML = dirIcon(k);
       $('.mini', b).innerHTML = (k === '?' && i === shownSlot) ? pix('arrow', DEG[shownKey]) : '';
       b.setAttribute('aria-pressed', String(i === shownSlot));
-      b.setAttribute('aria-label', `${i + 1}番目：${DIR_NAME[k]}。タップで向きを変える`);
+      b.setAttribute('aria-label', t('tileAria', i + 1, t('dir' + k)));
     });
   }
   tilesEl.addEventListener('click', e => {
@@ -2106,7 +2274,7 @@
   let dlgAction = null;
   const dlgBox = $('.dlg', dlg), dlgYes = $('#dlgYes');
   function confirmAsk(icon, text, action) {
-    dlgBox.classList.remove('one'); dlgYes.textContent = 'はい';
+    dlgBox.classList.remove('one'); dlgYes.textContent = t('yes');
     dlgIcon.innerHTML = pix(icon); dlgText.textContent = text; dlgAction = action;
     dlg.hidden = false; $('#dlgNo').focus();
   }
@@ -2122,16 +2290,16 @@
   dlg.addEventListener('click', e => { if (e.target === dlg) closeDlg(); });
 
   $('#reroll').addEventListener('click', () => {
-    if (isFixed()) { noticeAsk('dice', '固定モードのため\n振り直しができません'); return; }
-    if (!notes.length) { say('まだ玉が浮かんでいません'); return; }
-    confirmAsk('dice', '浮かんでいる音の玉を\nすべて振り直しますか？', () => {
+    if (isFixed()) { noticeAsk('dice', t('fixedNoReroll')); return; }
+    if (!notes.length) { say(t('noOrbsYet')); return; }
+    confirmAsk('dice', t('rerollAsk'), () => {
       for (const n of notes) { n.midi = randPitch(); n.q = Math.random() < S.q / 10; n.pop = 1; disturb(ox(n), oy(n), radiusOf(n), oaAll(1.5)); }
       saveSoon(); haptic(10);
     });
   });
   $('#clear').addEventListener('click', () => {
-    if (!notes.length) { say('玉は浮かんでいません'); return; }
-    confirmAsk('trash', '浮かんでいる音の玉を\nすべて消しますか？', () => {
+    if (!notes.length) { say(t('noOrbs')); return; }
+    confirmAsk('trash', t('clearAsk'), () => {
       notes.forEach(n => { fading.push({n, k:1}); disturb(ox(n), oy(n), radiusOf(n), oaAll(2.5)); });
       notes = []; saveSoon(); haptic(12);
     });
@@ -2177,19 +2345,48 @@
     g.fillStyle = `hsla(${hue},75%,76%,.4)`; starPath(g, x, y, R * 0.5 * 1.32, rot); g.fill();
     return c.toDataURL();
   }
-  $('#helpList').innerHTML = [
-    [`<span class="icons"><img class="orb-img" src="${orbImage(205)}" alt=""></span>`, '水面をタップすると音の玉を浮かべることができます。玉をタップすると別の音になります。玉はドラッグで動かせます。'],
-    [`<span class="icons"><img class="orb-img" src="${starImage(45)}" alt=""></span>`, '星の玉は、鳴るたびに音が変わります。出やすさは設定の音階タブで変えられます。'],
-    [ic('play', 'pause'), '光が水を渡り、通った玉の音が鳴ります。もう一度押すと、一時停止します。'],
-    [ic('arrow'), '光が進む方向です。タップすると右、下、左、上、？の順番で変わります。'],
-    [ic('clock'), '時計ボタンで、タイマーをセットできます。時間がたつと、音をゆっくり小さくしてから一時停止します。タイマーが動いている間は、時計ボタンが黄色になります。'],
-    [ic('rabbit'), '右下のうさぎボタンで、速さのバーが開きます。かめ・うさぎのボタンか、ゲージをタップしたりなぞったりして、光が渡る速さを変えられます。'],
-    [ic('pencil', 'eraser'), '鉛筆は置くモード、消しゴムは消すモードです。'],
-    [ic('dice', 'trash'), 'サイコロボタンで、玉の音を一気に変えることができます。ゴミ箱ボタンで玉を一気に消すことができます。'],
-    [ic('speaker', 'speakerOff'), 'スピーカーボタンで音を消したり戻したりできます。音楽アプリと同じように、マナーモード中も音が出ます。再生中は、アプリを切り替えたり画面を消したりしても流れ続けます（端末によっては止まることがあります）。'],
-    [ic('gear'), '歯車ボタンで、音階・音・音質・見え方などを設定できます。'],
-    [ic('share'), '共有ボタンで、作った玉の配置と設定をほかの人に渡したり、受け取ったものを読み込んだりできます。']
-  ].map(([i, t]) => `<li>${i}<span>${t.replace(/。(?=.)/g, '。<br>')}</span></li>`).join('');   // 句点ごとに改行
+  // 遊び方の文章：[アイコン, 日本語, 英語, 中国語]
+  const HELP = [
+    [`<span class="icons"><img class="orb-img" src="${orbImage(205)}" alt=""></span>`, '水面をタップすると音の玉を浮かべることができます。玉をタップすると別の音になります。玉はドラッグで動かせます。',
+      'Tap the water to float a sound orb. Tap an orb to change its note. Drag orbs to move them.',
+      '点击水面即可放下音球。点击音球会换成别的音。拖动音球可以移动它。'],
+    [`<span class="icons"><img class="orb-img" src="${starImage(45)}" alt=""></span>`, '星の玉は、鳴るたびに音が変わります。出やすさは設定の音階タブで変えられます。',
+      'Star orbs change their note every time they sound. You can change how often they appear in the Scale tab in Settings.',
+      '星星音球每次发声时音都会变化。出现率可以在设置的“音阶”标签页中调整。'],
+    [ic('play', 'pause'), '光が水を渡り、通った玉の音が鳴ります。もう一度押すと、一時停止します。',
+      'The light sweeps across the water and plays the orbs it passes. Press again to pause.',
+      '光会穿过水面，奏响经过的音球。再按一次即可暂停。'],
+    [ic('arrow'), '光が進む方向です。タップすると右、下、左、上、？の順番で変わります。',
+      'The direction the light travels. Tap to cycle through right, down, left, up and ? (random).',
+      '光前进的方向。点击后按右、下、左、上、？的顺序切换。'],
+    [ic('clock'), '時計ボタンで、タイマーをセットできます。時間がたつと、音をゆっくり小さくしてから一時停止します。タイマーが動いている間は、時計ボタンが黄色になります。',
+      'Set a timer with the clock button. When time is up, the sound slowly fades out and pauses. The clock button turns yellow while the timer is running.',
+      '用时钟按钮可以设置定时器。时间到后，声音会慢慢变小然后暂停。定时器运行时，时钟按钮会变成黄色。'],
+    [ic('rabbit'), '右下のうさぎボタンで、速さのバーが開きます。かめ・うさぎのボタンか、ゲージをタップしたりなぞったりして、光が渡る速さを変えられます。',
+      'The rabbit button at the bottom right opens the speed bar. Use the turtle and rabbit buttons, or tap or swipe the gauge, to change how fast the light moves.',
+      '右下角的兔子按钮会打开速度条。用乌龟、兔子按钮，或点击、滑动刻度条，可以改变光移动的速度。'],
+    [ic('pencil', 'eraser'), '鉛筆は置くモード、消しゴムは消すモードです。',
+      'The pencil places orbs; the eraser erases them.',
+      '铅笔是放置模式，橡皮是擦除模式。'],
+    [ic('dice', 'trash'), 'サイコロボタンで、玉の音を一気に変えることができます。ゴミ箱ボタンで玉を一気に消すことができます。',
+      'The dice button rerolls the notes of all orbs at once. The trash button removes all orbs at once.',
+      '骰子按钮可以一次性改变所有音球的音。垃圾桶按钮可以一次性清除所有音球。'],
+    [ic('speaker', 'speakerOff'), 'スピーカーボタンで音を消したり戻したりできます。音楽アプリと同じように、マナーモード中も音が出ます。再生中は、アプリを切り替えたり画面を消したりしても流れ続けます（端末によっては止まることがあります）。',
+      'The speaker button mutes and unmutes. Like a music app, it plays sound even in silent mode. While playing, it keeps going when you switch apps or turn off the screen (some devices may stop it).',
+      '扬声器按钮可以静音或恢复声音。和音乐应用一样，静音模式下也会发出声音。播放中即使切换应用或关闭屏幕也会继续播放（部分设备可能会停止）。'],
+    [ic('gear'), '歯車ボタンで、音階・音・音質・見え方などを設定できます。',
+      'The gear button opens settings for scale, sound, EQ, display and more.',
+      '齿轮按钮可以设置音阶、声音、音质、显示等。'],
+    [ic('share'), '共有ボタンで、作った玉の配置と設定をほかの人に渡したり、受け取ったものを読み込んだりできます。',
+      'The share button lets you send your orb layout and settings to others, or load ones you received.',
+      '分享按钮可以把你的音球布局和设置分享给他人，或导入收到的数据。']
+  ];
+  // 1文ごとに改行する（日本語・中国語は「。」、英語は「. 」のあと）
+  const renderHelp = () => {
+    const li = LANGS.indexOf(LANG) + 1;
+    $('#helpList').innerHTML = HELP.map(h => `<li>${h[0]}<span>${(LANG === 'en' ? h[li].replace(/\. (?=\S)/g, '.<br>') : h[li].replace(/。(?=.)/g, '。<br>'))}</span></li>`).join('');
+  };
+  renderHelp();
   $('#helpBtn').addEventListener('click', () => { if (!powered) return; settingsWin.hidden = true; shareWin.hidden = true; helpWin.hidden = false; haptic(5); });
 
   // ================= タイマー =================
@@ -2215,9 +2412,9 @@
   function renderTimer() {
     const on = !!timerEnd;
     clockBtn.setAttribute('aria-pressed', String(on));
-    clockBtn.setAttribute('aria-label', on ? 'タイマー（動いています）' : 'タイマー');
+    clockBtn.setAttribute('aria-label', t(on ? 'timerOn' : 'timer'));
     $('#tmrSet').hidden = on; $('#tmrLeft').hidden = !on;
-    $('#tmrGo').textContent = on ? '止める' : 'スタート';
+    $('#tmrGo').textContent = t(on ? 'timerStop' : 'timerStart');
     if (on) $('#tmrLeft').textContent = fmt((timerEnd - Date.now()) / 1000);
   }
   function timerTick() {
@@ -2244,7 +2441,7 @@
   $('#tmrGo').addEventListener('click', () => {
     if (timerEnd) { timerEnd = 0; armTimerFade(); renderTimer(); haptic(6); return; }
     const sec = +tmrH.value * 3600 + +tmrM.value * 60 + +tmrS.value;
-    if (!sec) { say('時間を選んでください'); return; }
+    if (!sec) { say(t('pickTime')); return; }
     tmrLast = sec; timerEnd = Date.now() + sec * 1000;
     ensureAudio(); armTimerFade(); renderTimer(); haptic(8);
     closeTimer();
@@ -2279,8 +2476,12 @@
 
   const rootSel = $('#rootSel'), scaleSel = $('#scaleSel'), keysEl = $('#keys');
   rootSel.innerHTML = NAMES.map((nm, pc) => `<option value="${pc}">${nm}</option>`).join('');
-  scaleSel.innerHTML = `<option value="custom">カスタム（鍵盤で選んだ音）</option>` +
-    SCALE_GROUPS.map(([g, list]) => `<optgroup label="${g}">${list.map(([id, label]) => `<option value="${id}">${label}</option>`).join('')}</optgroup>`).join('');
+  const renderScaleOptions = () => {
+    scaleSel.innerHTML = `<option value="custom">${t('custom')}</option>` +
+      SCALE_GROUPS.map(([g, list]) => `<optgroup label="${g[LANGS.indexOf(LANG)]}">${list.map(([id]) => `<option value="${id}">${scaleLabel(id)}</option>`).join('')}</optgroup>`).join('');
+    scaleSel.value = S.scaleKey;
+  };
+  renderScaleOptions();
   // 音名を音楽的に正しく綴る（Eのメジャーなら G♭ ではなく G♯）。
   // ルートからの音程ごとに使うアルファベットを決め（短2度→2番目の文字、増4度→4番目の文字…）、
   // ルートの綴り（C♯ か D♭ か など）は、臨時記号が少なく、ダブルシャープ・ダブルフラットが出ないほうを選ぶ
@@ -2317,14 +2518,14 @@
     rootSel.value = String(S.root);
     scaleSel.value = S.scaleKey;
     const set = new Set(); for (let i = 0; i < COUNT; i++) if (enabled[i]) set.add((LOW + i) % 12);
-    $('#uses').textContent = '使う音：' + spellScale(S.root, [...set].map(pc => (pc - S.root + 12) % 12).sort((a, b) => a - b)).join(' ');
-    const OCT = [['低','低い音'],['中','中くらいの音'],['高','高い音']];
+    $('#uses').textContent = t('uses') + spellScale(S.root, [...set].map(pc => (pc - S.root + 12) % 12).sort((a, b) => a - b)).join(' ');
+    const OCT = [[t('octLo'), t('octLoName')], [t('octMid'), t('octMidName')], [t('octHi'), t('octHiName')]];
     const key = (oct, pc, kind, pos) => {
       const i = oct * 12 + pc, on = enabled[i];
       const style = `--c:${S.cvd ? `hsl(${cvdHue(LOW + i)},70%,55%)` : NOTE_COL[pc]};` + (kind === 'b' ? `left:calc(${pos} * 100% / 7 - 5.5%);` : '');
       return `<button class="key ${kind}${on ? ' on' : ''}${pc === S.root ? ' root' : ''}" style="${style}" data-i="${i}" aria-pressed="${on}" aria-label="${NAMES[pc]}${oct + 3}">${kind === 'w' ? NAMES[pc] : ''}</button>`;
     };
-    keysEl.innerHTML = [2,1,0].map(oct => `<div class="kb-row"><button class="kb-oct" data-oct="${oct}" aria-label="${OCT[oct][1]}をまとめて切り替え">${OCT[oct][0]}</button>` +
+    keysEl.innerHTML = [2,1,0].map(oct => `<div class="kb-row"><button class="kb-oct" data-oct="${oct}" aria-label="${t('octToggle', OCT[oct][1])}">${OCT[oct][0]}</button>` +
       `<div class="kb">${WHITE.map(pc => key(oct, pc, 'w')).join('')}${BLACK_POS.map(([pc, pos]) => key(oct, pc, 'b', pos)).join('')}</div></div>`).join('');
   }
   function applyScale() {
@@ -2346,12 +2547,12 @@
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.i !== undefined) {
       const i = +b.dataset.i;
-      if (enabled[i]) { if (countOn() <= 1) { say('最後の1音は残します'); return; } enabled[i] = false; }
+      if (enabled[i]) { if (countOn() <= 1) { say(t('lastNote')); return; } enabled[i] = false; }
       else { enabled[i] = true; playNote(LOW + i, 0); }
     } else if (b.dataset.oct !== undefined) {
       const o = +b.dataset.oct, idx = Array.from({length:12}, (_, k) => o * 12 + k);
       if (idx.every(i => enabled[i])) {
-        if (enabled.filter((v, i) => v && !idx.includes(i)).length === 0) { say('最後の1音は残します'); return; }
+        if (enabled.filter((v, i) => v && !idx.includes(i)).length === 0) { say(t('lastNote')); return; }
         idx.forEach(i => { enabled[i] = false; });
       } else idx.forEach(i => { enabled[i] = true; });
     } else return;
@@ -2361,8 +2562,8 @@
 
   // 値0〜max。0のときはランプが全部消える（以前は0でも1つ点いていて、音量0がわかりにくかった）
   function meter(el, max, get, set, after) {
-    el.innerHTML = `<button data-d="-1" aria-label="減らす">${pix('minus')}</button><div class="blocks" style="--n:${max}">` +
-      Array.from({length:max}, (_, i) => `<button data-v="${i + 1}" aria-label="${i + 1}"></button>`).join('') + `</div><button data-d="1" aria-label="増やす">${pix('plus')}</button>`;
+    el.innerHTML = `<button data-d="-1" data-i18n-aria="less" aria-label="${t('less')}">${pix('minus')}</button><div class="blocks" style="--n:${max}">` +
+      Array.from({length:max}, (_, i) => `<button data-v="${i + 1}" aria-label="${i + 1}"></button>`).join('') + `</div><button data-d="1" data-i18n-aria="more" aria-label="${t('more')}">${pix('plus')}</button>`;
     const draw = () => { $$('[data-v]', el).forEach(b => b.classList.toggle('on', +b.dataset.v <= get())); if (after) after(); };
     const put = v => { v = Math.max(0, Math.min(max, v)); if (v === get()) return; set(v); draw(); saveSoon(); haptic(4); };
     el.addEventListener('click', e => {
@@ -2489,10 +2690,40 @@
   let setShown = '';
   function renderSettings() { renderScale(); renderToggles(); drawVol(); drawRev(); drawDly(); drawWhite(); drawPink(); drawQ(); drawEq(); drawTame(); setShown = setSig(); }
 
+  // ---- 言語の切り替え（待機画面の下と、設定の見え方タブ） ----
+  // ボタンの文字は、どの言語を選んでいても、その言語自身の名前で出す
+  const langBoxes = [$('#langTitle'), $('#langSet')];
+  langBoxes.forEach(box => {
+    box.innerHTML = LANGS.map(l => `<button type="button" class="${box.id === 'langSet' ? 'wbtn' : ''}" data-lang="${l}" lang="${l === 'zh' ? 'zh-Hans' : l}">${LANG_NAME[l]}</button>`).join('');
+    box.addEventListener('click', e => {
+      e.stopPropagation();   // 待機画面では、言語を選んでも始まらないように
+      const b = e.target.closest('[data-lang]'); if (b) setLang(b.dataset.lang);
+    });
+    box.addEventListener('keydown', e => e.stopPropagation());
+  });
+  const renderLangButtons = () => langBoxes.forEach(box => $$('[data-lang]', box).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === LANG))));
+  // 言語ごとに中身が変わるところを、まとめて書き直す
+  function renderText() {
+    applyStaticText(); renderLangButtons(); renderHelp(); renderScaleOptions(); renderTiles(); renderMute(); renderTimer();
+    playBtn.setAttribute('aria-label', t(playing ? 'pause' : 'play'));
+    try { if ('mediaSession' in navigator && navigator.mediaSession.metadata) navigator.mediaSession.metadata.title = t('name'); } catch (e) {}
+  }
+  function setLang(l) {
+    if (!LANGS.includes(l) || l === LANG) return;
+    LANG = l;
+    try { localStorage.setItem(LANG_KEY, l); } catch (e) {}
+    renderText(); renderSettings(); haptic(4);
+  }
+  renderText();
+
   // ================= データの受け渡し =================
   // 玉の位置・音と設定を数十〜数百バイトに詰め、URLの # に使える文字（英数字と - _ .）だけのコードにする
-  // リンクの土台は、今開いているページのURL（Webサーバーに置いたとき）。手元のファイルで開いているときはコードだけを渡す
-  const SHARE_BASE = /^https?:$/.test(location.protocol) ? location.href.split('#')[0] : '';
+  // リンクの土台は、本家（GitHub Pages）か手元のサーバーなら今開いているページのURL。
+  // itch.io など別の場所に埋め込まれているときは、そのURLでは開けないので本家のURLにする。手元のファイルで開いているときはコードだけを渡す
+  const HOME_URL = 'https://okapontakun.github.io/zen-sequencer/';
+  const SHARE_BASE = !/^https?:$/.test(location.protocol) ? ''
+    : /(^|\.)github\.io$|^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) ? location.href.split('#')[0]
+    : HOME_URL;
   const shareText = () => SHARE_BASE ? SHARE_BASE + '#' + encodeShare() : encodeShare();
   const SCALE_IDS = Object.keys(SCALES), TUNES = ['440', '432', '528'];
   const b64e = bytes => { let s = ''; for (const v of bytes) s += String.fromCharCode(v); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
@@ -2545,7 +2776,7 @@
     notes.forEach(n => disturb(ox(n), oy(n), radiusOf(n), oaAll(1.5)));
     slot = 0; stepT = 0; schedUntil = playClock; prevStep = null; pickStep(); shownSlot = 0; shownKey = curKey;
     applyReverb(); renderTiles(); drawLeds(); renderSettings(); saveSoon();
-    say('データを読み込みました');
+    say(t('loaded'));
   }
   const codeOut = $('#codeOut'), codeIn = $('#codeIn');
   const copyMsg = $('#copyMsg');
@@ -2567,17 +2798,17 @@
   }
   function copyText(text, btn) {
     codeOut.value = text;
-    const fallback = () => { codeOut.focus(); codeOut.select(); copySay('文字を選択したので、コピーしてください', 3200); };
+    const fallback = () => { codeOut.focus(); codeOut.select(); copySay(t('selectToCopy'), 3200); };
     try {
-      navigator.clipboard.writeText(text).then(() => copySay('コピーしました', 0, btn), fallback);
+      navigator.clipboard.writeText(text).then(() => copySay(t('copied'), 0, btn), fallback);
     } catch (e) { fallback(); }
   }
-  $('#copyLink').addEventListener('click', e => { if (!SHARE_BASE) copySay('ファイルで開いているので、コードをコピーします', 2400); copyText(shareText(), e.currentTarget); });
+  $('#copyLink').addEventListener('click', e => { if (!SHARE_BASE) copySay(t('fileCode'), 2400); copyText(shareText(), e.currentTarget); });
   $('#copyCode').addEventListener('click', e => copyText(encodeShare(), e.currentTarget));
   $('#importBtn').addEventListener('click', () => {
     const d = decodeShare(codeIn.value);
-    if (!d) { say('読み込めませんでした。リンクかコードを確認してください', 3200); return; }
-    confirmAsk('orb', 'このデータを読み込みますか？今の玉と設定は置き換わります。', () => {
+    if (!d) { say(t('loadFail'), 3200); return; }
+    confirmAsk('orb', t('loadAsk'), () => {
       applyShare(d); codeIn.value = ''; shareWin.hidden = true;
     });
   });
@@ -2586,7 +2817,7 @@
     const d = decodeShare(location.hash);
     // 一度たずねたら # を消す（再読み込みのたびに聞かれて、うっかり今の玉を上書きしないように）
     if (location.hash) try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
-    if (d) confirmAsk('orb', '共有されたデータを読み込みますか？今の玉と設定は置き換わります。', () => applyShare(d));
+    if (d) confirmAsk('orb', t('sharedAsk'), () => applyShare(d));
   }
   window.addEventListener('hashchange', () => { if (powered) checkHash(); });
 
